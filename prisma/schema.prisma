@@ -1,0 +1,107 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum GoalType {
+  milestone
+  numerical
+}
+
+enum AccountType {
+  current
+  savings
+  credit
+}
+
+model FinanceCategory {
+  id Int @id @default(autoincrement()) 
+  name String @unique
+  budgetItems BudgetItem[]
+  transactions Transaction[]
+}
+
+model HabitCategory {
+  id Int @id @default(autoincrement()) 
+  name String @unique
+  habits Habit[]
+}
+
+model CheckInComment {
+  id Int @id @default(autoincrement())
+  content String
+  checkIn CheckIn @relation(fields: [checkInId], references: [id])
+  checkInId Int
+}
+
+model Account {
+  id Int @id @default(autoincrement())
+  name String @unique
+  balance Decimal
+  type AccountType
+  transactions Transaction[]
+  budgetItems BudgetItem[]
+}
+
+model Transaction {
+  id Int @id @default(autoincrement())
+  date DateTime @default(now())
+  amount Decimal
+  category FinanceCategory @relation(fields: [categoryId], references: [id])
+  categoryId Int
+  account Account @relation(fields: [accountId], references: [id])
+  accountId Int
+}
+
+model Habit {
+  id Int @id @default(autoincrement())
+  name String
+  category HabitCategory @relation(fields: [categoryId], references: [id])
+  categoryId Int
+  streak Int @default(0)
+  isDaily Boolean
+  frequency Int?
+}
+
+model BudgetItem {
+  id Int @id @default(autoincrement())
+  name String
+  amount Decimal
+  category FinanceCategory @relation(fields: [categoryId], references: [id])
+  categoryId Int
+  account Account @relation(fields: [accountId], references: [id])
+  accountId Int
+}
+
+model GoalMilestone {
+  id Int @id @default(autoincrement())
+  name String
+  deadline DateTime?
+  goal Goal @relation(fields: [goalId], references: [id])
+  goalId Int
+}
+
+model Goal {
+  id Int @id @default(autoincrement())
+  name String
+  type GoalType
+  targetAmount Decimal?
+  currentAmount Decimal?
+  milestones GoalMilestone[]
+  deadline DateTime?
+}
+
+model CheckIn {
+  id Int @id @default(autoincrement())
+  date DateTime @default(now())
+  comments CheckInComment[]
+}
