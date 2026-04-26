@@ -4,21 +4,16 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { AccountType, Prisma } from "@/app/generated/prisma/client";
+import { currencySchema } from "@/lib/constants";
 
 export type AccountActionState = {
   ok: boolean;
   message?: string;
 };
 
-const balanceSchema = z
-  .string()
-  .trim()
-  .regex(/^-?\d+(\.\d{1,2})?$/, "Must be a number with up to 2 decimal places")
-  .transform((val) => Number(val));
-
 const accountSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
-  balance: balanceSchema,
+  balance: currencySchema,
   type: z.enum(AccountType),
 });
 
@@ -44,11 +39,17 @@ function getAccountActionError(error: unknown) {
   return "Something went wrong. Please try again.";
 }
 
-export async function createAccount(formData: FormData): Promise<AccountActionState> {
+export async function createAccount(
+  formData: FormData,
+): Promise<AccountActionState> {
   const parsed = parseAccountForm(formData);
 
   if (!parsed.success) {
-    return { ok: false, message: parsed.error.issues[0]?.message ?? "Please check the account details." };
+    return {
+      ok: false,
+      message:
+        parsed.error.issues[0]?.message ?? "Please check the account details.",
+    };
   }
 
   try {
@@ -68,16 +69,23 @@ export async function createAccount(formData: FormData): Promise<AccountActionSt
 }
 
 export async function getAccounts() {
-    return await prisma.account.findMany({
-        orderBy: { id: "asc" },
-    });
+  return await prisma.account.findMany({
+    orderBy: { id: "asc" },
+  });
 }
 
-export async function updateAccount(id: number, formData: FormData): Promise<AccountActionState> {
+export async function updateAccount(
+  id: number,
+  formData: FormData,
+): Promise<AccountActionState> {
   const parsed = parseAccountForm(formData);
 
   if (!parsed.success) {
-    return { ok: false, message: parsed.error.issues[0]?.message ?? "Please check the account details." };
+    return {
+      ok: false,
+      message:
+        parsed.error.issues[0]?.message ?? "Please check the account details.",
+    };
   }
 
   try {

@@ -4,7 +4,7 @@ import { ProgressBar } from "./progress-bar";
 export function BudgetsCard() {
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-      <h3 className="text-xl font-semibold">Budgets</h3>
+      <h3 className="text-xl font-semibold">Budget</h3>
       <div className="mt-5 space-y-4">
         {budgets.map((budget) => {
           const percent = Math.round((budget.spent / budget.total) * 100);
