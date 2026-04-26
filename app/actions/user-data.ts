@@ -85,6 +85,7 @@ const importDataSchema = z.object({
       z.object({
         id: z.number().int().positive(),
         name: z.string().min(1),
+        description: z.string().optional().default(""),
         deadline: nullableDateSchema,
         isComplete: z.boolean().optional().default(false),
         goalId: z.number().int().positive(),
@@ -145,6 +146,10 @@ function getUserDataActionError(error: unknown) {
     if (error.code === "P2003") {
       return "The import contains records with missing relationships.";
     }
+  }
+
+  if (error instanceof Error) {
+    return error.message;
   }
 
   return "Something went wrong. Please try again.";

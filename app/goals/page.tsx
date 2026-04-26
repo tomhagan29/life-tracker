@@ -53,6 +53,7 @@ export default async function GoalsPage() {
       milestones: goal.milestones.map((milestone) => ({
         id: milestone.id,
         name: milestone.name,
+        description: milestone.description,
         isComplete: milestone.isComplete,
         deadline: formatDisplayDate(milestone.deadline),
         deadlineValue: formatDateInput(milestone.deadline),
@@ -62,10 +63,10 @@ export default async function GoalsPage() {
 
   return (
     <main className="min-h-screen bg-[#f6f7f4] text-zinc-950">
-      <div className="mx-auto grid min-h-screen w-full max-w-[1500px] grid-cols-1 lg:grid-cols-[248px_1fr]">
+      <div className="app-shell">
         <Sidebar />
 
-        <div className="px-4 py-5 sm:px-6 lg:px-8">
+        <div className="app-content">
           <PageHeader title="Goals" />
           <GoalsTable goals={rows} />
         </div>

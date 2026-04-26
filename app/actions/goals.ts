@@ -67,6 +67,7 @@ const goalSchema = z
 
 const goalMilestoneSchema = z.object({
   name: z.string().trim().min(1, "Milestone name is required"),
+  description: z.string().trim().optional(),
   deadline: optionalDate,
 });
 
@@ -83,6 +84,7 @@ function parseGoalForm(formData: FormData) {
 function parseGoalMilestoneForm(formData: FormData) {
   return goalMilestoneSchema.safeParse({
     name: formData.get("name"),
+    description: formData.get("description"),
     deadline: formData.get("deadline"),
   });
 }
@@ -102,6 +104,10 @@ function getGoalActionError(error: unknown) {
     }
   }
 
+  if (error instanceof Error) {
+    return error.message;
+  }
+
   return "Something went wrong. Please try again.";
 }
 
@@ -114,6 +120,10 @@ function getGoalMilestoneActionError(error: unknown) {
     if (error.code === "P2003") {
       return "Please choose a valid milestone goal.";
     }
+  }
+
+  if (error instanceof Error) {
+    return error.message;
   }
 
   return "Something went wrong. Please try again.";
@@ -270,6 +280,7 @@ export async function createGoalMilestone(
     await prisma.goalMilestone.create({
       data: {
         name: parsed.data.name,
+        description: parsed.data.description ?? "",
         deadline: parseDeadline(parsed.data.deadline),
         goalId,
       },
@@ -302,6 +313,7 @@ export async function updateGoalMilestone(
       where: { id },
       data: {
         name: parsed.data.name,
+        description: parsed.data.description ?? "",
         deadline: parseDeadline(parsed.data.deadline),
       },
     });

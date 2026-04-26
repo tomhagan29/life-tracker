@@ -32,6 +32,7 @@ export type GoalRow = {
 export type GoalMilestoneRow = {
   id: number;
   name: string;
+  description: string;
   isComplete: boolean;
   deadline: string;
   deadlineValue: string;
@@ -277,6 +278,14 @@ export function GoalsTable({ goals }: { goals: GoalRow[] }) {
                             defaultValue={milestone.name}
                             className="rounded-md border border-zinc-300 px-2 py-1"
                           />
+                          <textarea
+                            form={editMilestoneFormId}
+                            name="description"
+                            defaultValue={milestone.description}
+                            rows={3}
+                            placeholder="Notes"
+                            className="resize-y rounded-md border border-zinc-300 px-2 py-1"
+                          />
                           <input
                             form={editMilestoneFormId}
                             name="deadline"
@@ -325,6 +334,11 @@ export function GoalsTable({ goals }: { goals: GoalRow[] }) {
                                 ? "Complete"
                                 : milestone.deadline}
                             </p>
+                            {milestone.description && (
+                              <p className="mt-2 whitespace-pre-line text-sm leading-6 text-zinc-600">
+                                {milestone.description}
+                              </p>
+                            )}
                           </div>
                           <div className="flex shrink-0 flex-wrap justify-end gap-2">
                             <button
@@ -405,6 +419,13 @@ export function GoalsTable({ goals }: { goals: GoalRow[] }) {
                 name="name"
                 placeholder="Milestone"
                 className="rounded-md border border-zinc-300 px-2 py-1"
+              />
+              <textarea
+                form={addMilestoneFormId}
+                name="description"
+                rows={4}
+                placeholder="Notes"
+                className="resize-y rounded-md border border-zinc-300 px-2 py-1"
               />
               <input
                 form={addMilestoneFormId}
