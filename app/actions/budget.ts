@@ -11,17 +11,18 @@ export type BudgetItemActionState = {
   message?: string;
 };
 
+const optionalSelectNumber = z.preprocess(
+  (value) => (value === "" || value === null ? undefined : value),
+  z.coerce.number().int().optional(),
+);
+
 const budgetItemSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
   amount: currencySchema,
-  dueDate: z
-    .string()
-    .trim()
-    .optional()
-    .transform((date) => (date ? date : undefined))
-    .refine((date) => !date || !Number.isNaN(Date.parse(date)), {
-      message: "Invalid date format",
-    }),
+  dueDay: optionalSelectNumber.refine(
+    (day) => day === undefined || (day >= 1 && day <= 31),
+    "Choose a valid due day",
+  ),
   categoryId: z.coerce.number().int().positive("Category is required"),
   accountId: z.coerce.number().int().positive("Account is required"),
 });
@@ -30,13 +31,15 @@ function parseBudgetForm(formData: FormData) {
   return budgetItemSchema.safeParse({
     name: formData.get("name"),
     amount: formData.get("amount"),
-    dueDate: formData.get("dueDate"),
+    dueDay: formData.get("dueDay"),
     categoryId: formData.get("categoryId"),
     accountId: formData.get("accountId"),
   });
 }
 
 function getBudgetItemActionError(error: unknown) {
+  console.error("Budget item action failed:", error);
+
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === "P2002") {
       return "A budget item with this name already exists.";
@@ -49,6 +52,10 @@ function getBudgetItemActionError(error: unknown) {
     if (error.code === "P2003") {
       return "Please choose a valid category and account.";
     }
+  }
+
+  if (error instanceof Error) {
+    return error.message;
   }
 
   return "Something went wrong. Please try again.";
@@ -72,7 +79,7 @@ export async function createBudgetItem(
       data: {
         name: parsed.data.name,
         amount: new Prisma.Decimal(parsed.data.amount),
-        dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
+        dueDay: parsed.data.dueDay ?? null,
         categoryId: parsed.data.categoryId,
         accountId: parsed.data.accountId,
       },
@@ -115,7 +122,7 @@ export async function updateBudgetItem(
       data: {
         name: parsed.data.name,
         amount: new Prisma.Decimal(parsed.data.amount),
-        dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
+        dueDay: parsed.data.dueDay ?? null,
         categoryId: parsed.data.categoryId,
         accountId: parsed.data.accountId,
       },

@@ -1,25 +1,8 @@
 import { BudgetTable, BudgetRow } from "@/app/components/budget/budget-table";
 import { Sidebar } from "@/app/components/shared/sidebar";
 import { PageHeader } from "@/app/components/shared/page-header";
-import {
-  getBudgetItems,
-  getFinanceCategories,
-} from "@/app/actions/budget";
+import { getBudgetItems, getFinanceCategories } from "@/app/actions/budget";
 import { getAccounts } from "@/app/actions/accounts";
-
-function formatDate(date: Date | null) {
-  return date
-    ? new Intl.DateTimeFormat("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }).format(date)
-    : "No due date";
-}
-
-function formatDateInputValue(date: Date | null) {
-  return date ? date.toISOString().slice(0, 10) : "";
-}
 
 export default async function BudgetDisplay() {
   const [budgetItems, accounts, categories] = await Promise.all([
@@ -33,8 +16,7 @@ export default async function BudgetDisplay() {
     name: item.name,
     amount: item.amount.toFixed(2),
     amountValue: item.amount.toNumber(),
-    dueDate: formatDate(item.dueDate),
-    dueDateValue: formatDateInputValue(item.dueDate),
+    dueDay: item.dueDay,
     category: item.category.name,
     categoryId: item.categoryId,
     account: item.account.name,

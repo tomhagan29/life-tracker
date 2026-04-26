@@ -1,5 +1,5 @@
 import { AccountsCard } from "./accounts-card";
-import { BudgetsCard } from "./budgets-card";
+import { BudgetCard } from "./budget-card";
 import { GoalsCard } from "./goals-card";
 import { HabitWeekCard } from "./habit-week-card";
 import { MoneyFlowCard } from "./money-flow-card";
@@ -16,13 +16,33 @@ export function Dashboard() {
         <Sidebar />
 
         <div className="px-4 py-5 sm:px-6 lg:px-8">
-          <PageHeader title="Finance and habits command center"/>
+          <PageHeader title="Finance and habits command center" />
 
           <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <StatCard label="Net worth" value="$74,286" detail="+8.4% over last month" accent="bg-emerald-500" />
-            <StatCard label="Cash flow" value="$2,186" detail="$5,240 in, $3,054 out" accent="bg-sky-500" />
-            <StatCard label="Budget left" value="$1,124" detail="19 days remaining" accent="bg-amber-500" />
-            <StatCard label="Habit score" value="82%" detail="31 completions this week" accent="bg-fuchsia-500" />
+            <StatCard
+              label="Net worth"
+              value="$74,286"
+              detail="+8.4% over last month"
+              accent="bg-emerald-500"
+            />
+            <StatCard
+              label="Cash flow"
+              value="$2,186"
+              detail="$5,240 in, $3,054 out"
+              accent="bg-sky-500"
+            />
+            <StatCard
+              label="Budget left"
+              value="$1,124"
+              detail="19 days remaining"
+              accent="bg-amber-500"
+            />
+            <StatCard
+              label="Habit score"
+              value="82%"
+              detail="31 completions this week"
+              accent="bg-fuchsia-500"
+            />
           </section>
 
           <section className="mt-6 grid gap-6 xl:grid-cols-[1.35fr_0.9fr]">
@@ -32,7 +52,7 @@ export function Dashboard() {
 
           <section className="mt-6 grid gap-6 xl:grid-cols-3">
             <AccountsCard />
-            <BudgetsCard />
+            <BudgetCard />
             <HabitWeekCard />
           </section>
 

@@ -14,8 +14,7 @@ export type BudgetRow = {
   name: string;
   amount: string;
   amountValue: number;
-  dueDate: string;
-  dueDateValue: string;
+  dueDay: number | null;
   category: string;
   categoryId: number;
   account: string;
@@ -32,6 +31,8 @@ type BudgetTableProps = {
   accounts: BudgetOption[];
   categories: BudgetOption[];
 };
+
+const days = Array.from({ length: 31 }, (_, index) => index + 1);
 
 export function BudgetTable({
   budgetItems,
@@ -149,20 +150,26 @@ export function BudgetTable({
         ),
     },
     {
-      key: "dueDate",
-      header: "Due date",
+      key: "dueDay",
+      header: "Due day",
       className: "text-zinc-500",
       cell: (row) =>
         editingBudgetItemId === row.id ? (
-          <input
+          <select
             form={`edit-budget-item-form-${row.id}`}
-            name="dueDate"
-            type="date"
-            defaultValue={row.dueDateValue}
-            className="w-full rounded-md border border-zinc-300 px-2 py-1 text-zinc-950"
-          />
+            name="dueDay"
+            defaultValue={row.dueDay ?? ""}
+            className="w-24 rounded-md border border-zinc-300 px-2 py-1 text-zinc-950"
+          >
+            <option value="">None</option>
+            {days.map((day) => (
+              <option key={day} value={day}>
+                {day}
+              </option>
+            ))}
+          </select>
         ) : (
-          row.dueDate
+          (row.dueDay ?? "—")
         ),
     },
     {
@@ -178,7 +185,9 @@ export function BudgetTable({
             className="w-full rounded-md border border-zinc-300 px-2 py-1 text-right font-normal text-zinc-950"
           />
         ) : (
-          <span className={row.amountValue < 0 ? "text-red-600" : "text-green-600"}>
+          <span
+            className={row.amountValue < 0 ? "text-red-600" : "text-green-600"}
+          >
             {row.amount}
           </span>
         ),
@@ -242,7 +251,9 @@ export function BudgetTable({
                     disabled={pendingAction === `delete-${row.id}`}
                     className="rounded-md border border-red-200 px-2.5 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50"
                   >
-                    {pendingAction === `delete-${row.id}` ? "Deleting" : "Delete"}
+                    {pendingAction === `delete-${row.id}`
+                      ? "Deleting"
+                      : "Delete"}
                   </button>
                 </form>
               </>
@@ -272,7 +283,8 @@ export function BudgetTable({
 
       {!canAddBudgetItem && (
         <div className="border-b border-amber-100 bg-amber-50 px-5 py-3 text-sm font-medium text-amber-800">
-          Add at least one account and finance category before creating budget items.
+          Add at least one account and finance category before creating budget
+          items.
         </div>
       )}
 
@@ -330,13 +342,19 @@ export function BudgetTable({
               </select>
             </td>
             <td className="px-5 py-3">
-              <input
+              <select
                 form={addFormId}
-                name="dueDate"
-                type="date"
+                name="dueDay"
                 disabled={!canAddBudgetItem}
-                className="w-full rounded-md border border-zinc-300 px-2 py-1 disabled:bg-zinc-100"
-              />
+                className="w-24 rounded-md border border-zinc-300 px-2 py-1 disabled:bg-zinc-100"
+              >
+                <option value="">None</option>
+                {days.map((day) => (
+                  <option key={day} value={day}>
+                    {day}
+                  </option>
+                ))}
+              </select>
             </td>
             <td className="px-5 py-3">
               <input

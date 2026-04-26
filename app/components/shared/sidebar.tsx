@@ -9,7 +9,7 @@ const navigationItems = [
   { label: "Budget", href: "/budget" },
   { label: "Habits", href: "/" },
   { label: "Goals", href: "/" },
-  { label: "Settings", href: "/" },
+  { label: "Settings", href: "/settings" },
 ];
 
 export function Sidebar() {

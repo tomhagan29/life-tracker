@@ -76,7 +76,7 @@ model BudgetItem {
   id Int @id @default(autoincrement())
   name String
   amount Decimal
-  dueDate DateTime?
+  dueDay Int?
   category FinanceCategory @relation(fields: [categoryId], references: [id])
   categoryId Int
   account Account @relation(fields: [accountId], references: [id])

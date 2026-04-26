@@ -53,7 +53,7 @@ CREATE TABLE "BudgetItem" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "name" TEXT NOT NULL,
     "amount" DECIMAL NOT NULL,
-    "dueDate" DATETIME,
+    "dueDay" INTEGER,
     "categoryId" INTEGER NOT NULL,
     "accountId" INTEGER NOT NULL,
     CONSTRAINT "BudgetItem_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "FinanceCategory" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
