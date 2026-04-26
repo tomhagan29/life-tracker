@@ -333,9 +333,13 @@ export async function getDashboardData(): Promise<DashboardData> {
   const goalRows = goals.slice(0, 4).map((goal) => {
     const currentAmount = goal.currentAmount?.toNumber() ?? null;
     const targetAmount = goal.targetAmount?.toNumber() ?? null;
-    const progress = getGoalProgress(currentAmount, targetAmount);
+    const progress = goal.isComplete
+      ? 100
+      : getGoalProgress(currentAmount, targetAmount);
     const detail =
-      goal.type === "numerical" && currentAmount !== null && targetAmount !== null
+      goal.isComplete
+        ? "Complete"
+        : goal.type === "numerical" && currentAmount !== null && targetAmount !== null
         ? `${formatCurrency(currentAmount)} of ${formatCurrency(targetAmount)}`
         : goal.deadline
           ? `Due ${activityDateFormatter.format(goal.deadline)}`
@@ -463,7 +467,9 @@ export async function getDashboardData(): Promise<DashboardData> {
       category: "Goal",
       date: goal.deadline ? activityDateFormatter.format(goal.deadline) : "No deadline",
       amount:
-        goal.type === "numerical"
+        goal.isComplete
+          ? "Complete"
+          : goal.type === "numerical"
           ? `${getGoalProgress(currentAmount, targetAmount)}%`
           : "Milestone",
     };

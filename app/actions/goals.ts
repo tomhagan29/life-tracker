@@ -11,6 +11,8 @@ export type GoalActionState = {
   message?: string;
 };
 
+export type GoalMilestoneActionState = GoalActionState;
+
 const optionalDate = z.preprocess(
   (value) => (value === "" || value === null ? undefined : value),
   z
@@ -63,12 +65,24 @@ const goalSchema = z
     }
   });
 
+const goalMilestoneSchema = z.object({
+  name: z.string().trim().min(1, "Milestone name is required"),
+  deadline: optionalDate,
+});
+
 function parseGoalForm(formData: FormData) {
   return goalSchema.safeParse({
     name: formData.get("name"),
     type: formData.get("type"),
     targetAmount: formData.get("targetAmount"),
     currentAmount: formData.get("currentAmount"),
+    deadline: formData.get("deadline"),
+  });
+}
+
+function parseGoalMilestoneForm(formData: FormData) {
+  return goalMilestoneSchema.safeParse({
+    name: formData.get("name"),
     deadline: formData.get("deadline"),
   });
 }
@@ -81,6 +95,24 @@ function getGoalActionError(error: unknown) {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === "P2025") {
       return "This goal no longer exists.";
+    }
+
+    if (error.code === "P2003") {
+      return "This goal still has related records.";
+    }
+  }
+
+  return "Something went wrong. Please try again.";
+}
+
+function getGoalMilestoneActionError(error: unknown) {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === "P2025") {
+      return "This milestone no longer exists.";
+    }
+
+    if (error.code === "P2003") {
+      return "Please choose a valid milestone goal.";
     }
   }
 
@@ -171,15 +203,144 @@ export async function updateGoal(
   }
 }
 
-export async function deleteGoal(id: number): Promise<GoalActionState> {
+export async function toggleGoalComplete(
+  id: number,
+  isComplete: boolean,
+): Promise<GoalActionState> {
   try {
-    await prisma.goal.delete({
+    await prisma.goal.update({
       where: { id },
+      data: { isComplete },
     });
 
     revalidateGoalPaths();
     return { ok: true };
   } catch (error) {
     return { ok: false, message: getGoalActionError(error) };
+  }
+}
+
+export async function deleteGoal(id: number): Promise<GoalActionState> {
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.goalMilestone.deleteMany({
+        where: { goalId: id },
+      });
+
+      await tx.goal.delete({
+        where: { id },
+      });
+    });
+
+    revalidateGoalPaths();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: getGoalActionError(error) };
+  }
+}
+
+export async function createGoalMilestone(
+  goalId: number,
+  formData: FormData,
+): Promise<GoalMilestoneActionState> {
+  const parsed = parseGoalMilestoneForm(formData);
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message:
+        parsed.error.issues[0]?.message ??
+        "Please check the milestone details.",
+    };
+  }
+
+  try {
+    const goal = await prisma.goal.findUniqueOrThrow({
+      where: { id: goalId },
+      select: { type: true },
+    });
+
+    if (goal.type !== GoalType.milestone) {
+      return {
+        ok: false,
+        message: "Milestones can only be added to milestone goals.",
+      };
+    }
+
+    await prisma.goalMilestone.create({
+      data: {
+        name: parsed.data.name,
+        deadline: parseDeadline(parsed.data.deadline),
+        goalId,
+      },
+    });
+
+    revalidateGoalPaths();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: getGoalMilestoneActionError(error) };
+  }
+}
+
+export async function updateGoalMilestone(
+  id: number,
+  formData: FormData,
+): Promise<GoalMilestoneActionState> {
+  const parsed = parseGoalMilestoneForm(formData);
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message:
+        parsed.error.issues[0]?.message ??
+        "Please check the milestone details.",
+    };
+  }
+
+  try {
+    await prisma.goalMilestone.update({
+      where: { id },
+      data: {
+        name: parsed.data.name,
+        deadline: parseDeadline(parsed.data.deadline),
+      },
+    });
+
+    revalidateGoalPaths();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: getGoalMilestoneActionError(error) };
+  }
+}
+
+export async function toggleGoalMilestoneComplete(
+  id: number,
+  isComplete: boolean,
+): Promise<GoalMilestoneActionState> {
+  try {
+    await prisma.goalMilestone.update({
+      where: { id },
+      data: { isComplete },
+    });
+
+    revalidateGoalPaths();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: getGoalMilestoneActionError(error) };
+  }
+}
+
+export async function deleteGoalMilestone(
+  id: number,
+): Promise<GoalMilestoneActionState> {
+  try {
+    await prisma.goalMilestone.delete({
+      where: { id },
+    });
+
+    revalidateGoalPaths();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: getGoalMilestoneActionError(error) };
   }
 }

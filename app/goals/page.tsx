@@ -46,9 +46,17 @@ export default async function GoalsPage() {
       typeLabel: goalTypeLabel[goal.type],
       currentAmount: goal.currentAmount?.toFixed(2) ?? "",
       targetAmount: goal.targetAmount?.toFixed(2) ?? "",
-      progress: getProgress(currentAmount, targetAmount),
+      progress: goal.isComplete ? "100%" : getProgress(currentAmount, targetAmount),
+      isComplete: goal.isComplete,
       deadline: formatDisplayDate(goal.deadline),
       deadlineValue: formatDateInput(goal.deadline),
+      milestones: goal.milestones.map((milestone) => ({
+        id: milestone.id,
+        name: milestone.name,
+        isComplete: milestone.isComplete,
+        deadline: formatDisplayDate(milestone.deadline),
+        deadlineValue: formatDateInput(milestone.deadline),
+      })),
     };
   });
 

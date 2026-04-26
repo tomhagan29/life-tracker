@@ -1,9 +1,17 @@
 "use client";
 
 import type { GoalActionState } from "@/app/actions/goals";
-import { createGoal, deleteGoal, updateGoal } from "@/app/actions/goals";
-import { Column, DataTable } from "@/app/components/shared/data-table";
-import { useState } from "react";
+import {
+  createGoal,
+  createGoalMilestone,
+  deleteGoal,
+  deleteGoalMilestone,
+  toggleGoalComplete,
+  toggleGoalMilestoneComplete,
+  updateGoal,
+  updateGoalMilestone,
+} from "@/app/actions/goals";
+import { Fragment, useState } from "react";
 
 type GoalType = "milestone" | "numerical";
 
@@ -15,6 +23,16 @@ export type GoalRow = {
   targetAmount: string;
   currentAmount: string;
   progress: string;
+  isComplete: boolean;
+  deadline: string;
+  deadlineValue: string;
+  milestones: GoalMilestoneRow[];
+};
+
+export type GoalMilestoneRow = {
+  id: number;
+  name: string;
+  isComplete: boolean;
   deadline: string;
   deadlineValue: string;
 };
@@ -102,6 +120,9 @@ function GoalAmountFields({
 export function GoalsTable({ goals }: { goals: GoalRow[] }) {
   const addFormId = "add-goal-form";
   const [editingGoalId, setEditingGoalId] = useState<number | null>(null);
+  const [editingMilestoneId, setEditingMilestoneId] = useState<number | null>(
+    null,
+  );
   const [actionState, setActionState] = useState<GoalActionState>({
     ok: true,
   });
@@ -144,137 +165,269 @@ export function GoalsTable({ goals }: { goals: GoalRow[] }) {
     setPendingAction(null);
   }
 
-  const columns: Column<GoalRow>[] = [
-    {
-      key: "name",
-      header: "Name",
-      className: "font-semibold",
-      cell: (row) =>
-        editingGoalId === row.id ? (
-          <input
-            form={`edit-goal-form-${row.id}`}
-            name="name"
-            defaultValue={row.name}
-            className="w-full rounded-md border border-zinc-300 px-2 py-1 font-normal"
-          />
-        ) : (
-          row.name
-        ),
-    },
-    {
-      key: "type",
-      header: "Type and target",
-      className: "text-zinc-500",
-      cell: (row) =>
-        editingGoalId === row.id ? (
-          <GoalAmountFields
-            form={`edit-goal-form-${row.id}`}
-            defaultType={row.type}
-            defaultCurrentAmount={row.currentAmount}
-            defaultTargetAmount={row.targetAmount}
-          />
-        ) : (
-          <div>
-            <p>{row.typeLabel}</p>
-            {row.type === "numerical" && (
-              <p className="mt-1 text-xs">
-                {row.currentAmount} of {row.targetAmount}
-              </p>
-            )}
-          </div>
-        ),
-    },
-    {
-      key: "progress",
-      header: "Progress",
-      className: "text-right font-semibold",
-      cell: (row) => row.progress,
-    },
-    {
-      key: "deadline",
-      header: "Deadline",
-      className: "text-zinc-500",
-      cell: (row) =>
-        editingGoalId === row.id ? (
-          <input
-            form={`edit-goal-form-${row.id}`}
-            name="deadline"
-            type="date"
-            defaultValue={row.deadlineValue}
-            className="w-full rounded-md border border-zinc-300 px-2 py-1 text-zinc-950"
-          />
-        ) : (
-          row.deadline
-        ),
-    },
-    {
-      key: "actions",
-      header: "",
-      className: "text-right",
-      cell: (row) => {
-        const isEditing = editingGoalId === row.id;
-        const editFormId = `edit-goal-form-${row.id}`;
+  async function handleToggleGoalComplete(id: number, isComplete: boolean) {
+    setPendingAction(`toggle-goal-${id}`);
+    setActionState({ ok: true });
 
-        return (
-          <div className="flex justify-end gap-2">
-            {isEditing ? (
-              <>
-                <form
-                  id={editFormId}
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    handleUpdateGoal(row.id, new FormData(event.currentTarget));
-                  }}
-                />
-                <button
-                  form={editFormId}
-                  type="submit"
-                  disabled={pendingAction === `update-${row.id}`}
-                  className="rounded-md bg-blue-600 px-2.5 py-1.5 text-sm font-semibold text-white hover:bg-blue-500"
-                >
-                  {pendingAction === `update-${row.id}` ? "Saving" : "Save"}
-                </button>
-                <button
-                  type="button"
-                  disabled={pendingAction === `update-${row.id}`}
-                  className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-sm font-semibold hover:bg-zinc-50"
-                  onClick={() => setEditingGoalId(null)}
-                >
-                  Cancel
-                </button>
-              </>
+    const result = await toggleGoalComplete(id, isComplete);
+    setActionState(result);
+    setPendingAction(null);
+  }
+
+  async function handleCreateMilestone(
+    goalId: number,
+    formData: FormData,
+    form: HTMLFormElement,
+  ) {
+    setPendingAction(`create-milestone-${goalId}`);
+    setActionState({ ok: true });
+
+    const result = await createGoalMilestone(goalId, formData);
+    setActionState(result);
+    setPendingAction(null);
+
+    if (result.ok) {
+      form.reset();
+    }
+  }
+
+  async function handleUpdateMilestone(id: number, formData: FormData) {
+    setPendingAction(`update-milestone-${id}`);
+    setActionState({ ok: true });
+
+    const result = await updateGoalMilestone(id, formData);
+    setActionState(result);
+    setPendingAction(null);
+
+    if (result.ok) {
+      setEditingMilestoneId(null);
+    }
+  }
+
+  async function handleDeleteMilestone(id: number) {
+    setPendingAction(`delete-milestone-${id}`);
+    setActionState({ ok: true });
+
+    const result = await deleteGoalMilestone(id);
+    setActionState(result);
+    setPendingAction(null);
+  }
+
+  async function handleToggleMilestoneComplete(
+    id: number,
+    isComplete: boolean,
+  ) {
+    setPendingAction(`toggle-milestone-${id}`);
+    setActionState({ ok: true });
+
+    const result = await toggleGoalMilestoneComplete(id, isComplete);
+    setActionState(result);
+    setPendingAction(null);
+  }
+
+  function getMilestoneSummary(row: GoalRow) {
+    const count = row.milestones.length;
+    return `${count} ${count === 1 ? "milestone" : "milestones"}`;
+  }
+
+  function renderMilestonePanel(row: GoalRow) {
+    const addMilestoneFormId = `add-goal-milestone-form-${row.id}`;
+
+    return (
+      <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-zinc-950">Milestones</p>
+            <p className="text-sm text-zinc-500">{getMilestoneSummary(row)}</p>
+          </div>
+        </div>
+
+        <div className="mt-3 grid gap-3 xl:grid-cols-[1fr_360px]">
+          <div>
+            {row.milestones.length === 0 ? (
+              <p className="rounded-md border border-dashed border-zinc-300 bg-white p-3 text-sm font-medium text-zinc-500">
+                No milestones yet
+              </p>
             ) : (
-              <>
-                <button
-                  type="button"
-                  className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-sm font-semibold hover:bg-zinc-50"
-                  onClick={() => setEditingGoalId(row.id)}
-                >
-                  Edit
-                </button>
-                <form
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    handleDeleteGoal(row.id);
-                  }}
-                >
-                  <button
-                    type="submit"
-                    disabled={pendingAction === `delete-${row.id}`}
-                    className="rounded-md border border-red-200 px-2.5 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50"
-                  >
-                    {pendingAction === `delete-${row.id}`
-                      ? "Deleting"
-                      : "Delete"}
-                  </button>
-                </form>
-              </>
+              <div className="grid gap-2 lg:grid-cols-2">
+                {row.milestones.map((milestone) => {
+                  const isEditing = editingMilestoneId === milestone.id;
+                  const editMilestoneFormId = `edit-goal-milestone-form-${milestone.id}`;
+
+                  return (
+                    <div
+                      key={milestone.id}
+                      className="rounded-md border border-zinc-200 bg-white p-3"
+                    >
+                      {isEditing ? (
+                        <div className="grid gap-2">
+                          <form
+                            id={editMilestoneFormId}
+                            onSubmit={(event) => {
+                              event.preventDefault();
+                              handleUpdateMilestone(
+                                milestone.id,
+                                new FormData(event.currentTarget),
+                              );
+                            }}
+                          />
+                          <input
+                            form={editMilestoneFormId}
+                            name="name"
+                            defaultValue={milestone.name}
+                            className="rounded-md border border-zinc-300 px-2 py-1"
+                          />
+                          <input
+                            form={editMilestoneFormId}
+                            name="deadline"
+                            type="date"
+                            defaultValue={milestone.deadlineValue}
+                            className="rounded-md border border-zinc-300 px-2 py-1"
+                          />
+                          <div className="flex justify-end gap-2">
+                            <button
+                              form={editMilestoneFormId}
+                              type="submit"
+                              disabled={
+                                pendingAction ===
+                                `update-milestone-${milestone.id}`
+                              }
+                              className="rounded-md bg-blue-600 px-2.5 py-1 text-sm font-semibold text-white hover:bg-blue-500"
+                            >
+                              {pendingAction ===
+                              `update-milestone-${milestone.id}`
+                                ? "Saving"
+                                : "Save"}
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-md border border-zinc-300 px-2.5 py-1 text-sm font-semibold hover:bg-zinc-50"
+                              onClick={() => setEditingMilestoneId(null)}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p
+                              className={`font-semibold ${
+                                milestone.isComplete
+                                  ? "text-zinc-500 line-through"
+                                  : "text-zinc-950"
+                              }`}
+                            >
+                              {milestone.name}
+                            </p>
+                            <p className="mt-1 text-sm text-zinc-500">
+                              {milestone.isComplete
+                                ? "Complete"
+                                : milestone.deadline}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                            <button
+                              type="button"
+                              disabled={
+                                pendingAction ===
+                                `toggle-milestone-${milestone.id}`
+                              }
+                              className={`rounded-md border px-2 py-1 text-xs font-semibold ${
+                                milestone.isComplete
+                                  ? "border-zinc-300 text-zinc-700 hover:bg-zinc-50"
+                                  : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                              }`}
+                              onClick={() =>
+                                handleToggleMilestoneComplete(
+                                  milestone.id,
+                                  !milestone.isComplete,
+                                )
+                              }
+                            >
+                              {milestone.isComplete
+                                ? "Reopen"
+                                : "Complete"}
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold hover:bg-zinc-50"
+                              onClick={() =>
+                                setEditingMilestoneId(milestone.id)
+                              }
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              disabled={
+                                pendingAction ===
+                                `delete-milestone-${milestone.id}`
+                              }
+                              className="rounded-md border border-red-200 px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                              onClick={() =>
+                                handleDeleteMilestone(milestone.id)
+                              }
+                            >
+                              {pendingAction ===
+                              `delete-milestone-${milestone.id}`
+                                ? "Deleting"
+                                : "Delete"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
-        );
-      },
-    },
-  ];
+
+          <div className="rounded-md border border-zinc-200 bg-white p-3">
+            <p className="text-sm font-semibold text-zinc-950">
+              Add milestone
+            </p>
+            <div className="mt-3 grid gap-2">
+              <form
+                id={addMilestoneFormId}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  handleCreateMilestone(
+                    row.id,
+                    new FormData(event.currentTarget),
+                    event.currentTarget,
+                  );
+                }}
+              />
+              <input
+                form={addMilestoneFormId}
+                name="name"
+                placeholder="Milestone"
+                className="rounded-md border border-zinc-300 px-2 py-1"
+              />
+              <input
+                form={addMilestoneFormId}
+                name="deadline"
+                type="date"
+                className="rounded-md border border-zinc-300 px-2 py-1"
+              />
+              <button
+                form={addMilestoneFormId}
+                type="submit"
+                disabled={pendingAction === `create-milestone-${row.id}`}
+                className="rounded-md bg-blue-600 px-2.5 py-1.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:bg-zinc-300"
+              >
+                {pendingAction === `create-milestone-${row.id}`
+                  ? "Adding"
+                  : "Add milestone"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
@@ -293,61 +446,232 @@ export function GoalsTable({ goals }: { goals: GoalRow[] }) {
         </div>
       )}
 
-      <DataTable
-        rows={goals}
-        columns={columns}
-        getRowKey={(row) => row.id}
-        footer={
-          <tr className="border-t border-zinc-200 bg-zinc-50">
-            <td className="px-5 py-3">
-              <form
-                id={addFormId}
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  handleCreateGoal(
-                    new FormData(event.currentTarget),
-                    event.currentTarget,
-                  );
-                }}
-              />
-              <input
-                form={addFormId}
-                name="name"
-                placeholder="Goal name"
-                className="w-full rounded-md border border-zinc-300 px-2 py-1"
-              />
-            </td>
-            <td className="px-5 py-3">
-              <GoalAmountFields
-                key={addFormResetKey}
-                form={addFormId}
-                defaultType="numerical"
-              />
-            </td>
-            <td className="px-5 py-3 text-right font-semibold text-zinc-500">
-              0%
-            </td>
-            <td className="px-5 py-3">
-              <input
-                form={addFormId}
-                name="deadline"
-                type="date"
-                className="w-full rounded-md border border-zinc-300 px-2 py-1"
-              />
-            </td>
-            <td className="px-5 py-3 text-right">
-              <button
-                form={addFormId}
-                type="submit"
-                disabled={pendingAction === "create"}
-                className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:bg-zinc-300"
-              >
-                {pendingAction === "create" ? "Adding" : "Add"}
-              </button>
-            </td>
-          </tr>
-        }
-      />
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[880px] text-left text-sm">
+          <thead className="bg-zinc-50 text-zinc-500">
+            <tr>
+              <th className="px-5 py-3 font-semibold">Name</th>
+              <th className="px-5 py-3 font-semibold">Type and target</th>
+              <th className="px-5 py-3 text-right font-semibold">Progress</th>
+              <th className="px-5 py-3 font-semibold">Deadline</th>
+              <th className="px-5 py-3 text-right font-semibold" />
+            </tr>
+          </thead>
+
+          <tbody>
+            {goals.map((row) => {
+              const isEditing = editingGoalId === row.id;
+              const editFormId = `edit-goal-form-${row.id}`;
+
+              return (
+                <Fragment key={row.id}>
+                  <tr className="border-t border-zinc-100">
+                    <td className="px-5 py-4 font-semibold">
+                      {isEditing ? (
+                        <input
+                          form={editFormId}
+                          name="name"
+                          defaultValue={row.name}
+                          className="w-full rounded-md border border-zinc-300 px-2 py-1 font-normal"
+                        />
+                      ) : (
+                        <span
+                          className={
+                            row.isComplete ? "text-zinc-500 line-through" : ""
+                          }
+                        >
+                          {row.name}
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="px-5 py-4 text-zinc-500">
+                      {isEditing ? (
+                        <GoalAmountFields
+                          form={editFormId}
+                          defaultType={row.type}
+                          defaultCurrentAmount={row.currentAmount}
+                          defaultTargetAmount={row.targetAmount}
+                        />
+                      ) : (
+                        <div>
+                          <p>{row.typeLabel}</p>
+                          {row.type === "numerical" && (
+                            <p className="mt-1 text-xs">
+                              {row.currentAmount} of {row.targetAmount}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </td>
+
+                    <td className="px-5 py-4 text-right font-semibold">
+                      {row.isComplete
+                        ? "Complete"
+                        : row.type === "milestone"
+                          ? getMilestoneSummary(row)
+                          : row.progress}
+                    </td>
+
+                    <td className="px-5 py-4 text-zinc-500">
+                      {isEditing ? (
+                        <input
+                          form={editFormId}
+                          name="deadline"
+                          type="date"
+                          defaultValue={row.deadlineValue}
+                          className="w-full rounded-md border border-zinc-300 px-2 py-1 text-zinc-950"
+                        />
+                      ) : (
+                        row.deadline
+                      )}
+                    </td>
+
+                    <td className="px-5 py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        {isEditing ? (
+                          <>
+                            <form
+                              id={editFormId}
+                              onSubmit={(event) => {
+                                event.preventDefault();
+                                handleUpdateGoal(
+                                  row.id,
+                                  new FormData(event.currentTarget),
+                                );
+                              }}
+                            />
+                            <button
+                              form={editFormId}
+                              type="submit"
+                              disabled={pendingAction === `update-${row.id}`}
+                              className="rounded-md bg-blue-600 px-2.5 py-1.5 text-sm font-semibold text-white hover:bg-blue-500"
+                            >
+                              {pendingAction === `update-${row.id}`
+                                ? "Saving"
+                                : "Save"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={pendingAction === `update-${row.id}`}
+                              className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-sm font-semibold hover:bg-zinc-50"
+                              onClick={() => setEditingGoalId(null)}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              disabled={pendingAction === `toggle-goal-${row.id}`}
+                              className={`rounded-md border px-2.5 py-1.5 text-sm font-semibold ${
+                                row.isComplete
+                                  ? "border-zinc-300 text-zinc-700 hover:bg-zinc-50"
+                                  : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                              }`}
+                              onClick={() =>
+                                handleToggleGoalComplete(
+                                  row.id,
+                                  !row.isComplete,
+                                )
+                              }
+                            >
+                              {row.isComplete ? "Reopen" : "Complete"}
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-sm font-semibold hover:bg-zinc-50"
+                              onClick={() => setEditingGoalId(row.id)}
+                            >
+                              Edit
+                            </button>
+                            <form
+                              onSubmit={(event) => {
+                                event.preventDefault();
+                                handleDeleteGoal(row.id);
+                              }}
+                            >
+                              <button
+                                type="submit"
+                                disabled={pendingAction === `delete-${row.id}`}
+                                className="rounded-md border border-red-200 px-2.5 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50"
+                              >
+                                {pendingAction === `delete-${row.id}`
+                                  ? "Deleting"
+                                  : "Delete"}
+                              </button>
+                            </form>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+
+                  {row.type === "milestone" && (
+                    <tr className="border-t border-zinc-100">
+                      <td colSpan={5} className="px-5 pb-5 pt-0">
+                        {renderMilestonePanel(row)}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+
+          <tfoot>
+            <tr className="border-t border-zinc-200 bg-zinc-50">
+              <td className="px-5 py-3">
+                <form
+                  id={addFormId}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    handleCreateGoal(
+                      new FormData(event.currentTarget),
+                      event.currentTarget,
+                    );
+                  }}
+                />
+                <input
+                  form={addFormId}
+                  name="name"
+                  placeholder="Goal name"
+                  className="w-full rounded-md border border-zinc-300 px-2 py-1"
+                />
+              </td>
+              <td className="px-5 py-3">
+                <GoalAmountFields
+                  key={addFormResetKey}
+                  form={addFormId}
+                  defaultType="numerical"
+                />
+              </td>
+              <td className="px-5 py-3 text-right font-semibold text-zinc-500">
+                0%
+              </td>
+              <td className="px-5 py-3">
+                <input
+                  form={addFormId}
+                  name="deadline"
+                  type="date"
+                  className="w-full rounded-md border border-zinc-300 px-2 py-1"
+                />
+              </td>
+              <td className="px-5 py-3 text-right">
+                <button
+                  form={addFormId}
+                  type="submit"
+                  disabled={pendingAction === "create"}
+                  className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:bg-zinc-300"
+                >
+                  {pendingAction === "create" ? "Adding" : "Add"}
+                </button>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
   );
 }

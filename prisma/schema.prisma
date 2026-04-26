@@ -87,6 +87,7 @@ model GoalMilestone {
   id Int @id @default(autoincrement())
   name String
   deadline DateTime?
+  isComplete Boolean @default(false)
   goal Goal @relation(fields: [goalId], references: [id])
   goalId Int
 }
@@ -97,6 +98,7 @@ model Goal {
   type GoalType
   targetAmount Decimal?
   currentAmount Decimal?
+  isComplete Boolean @default(false)
   milestones GoalMilestone[]
   deadline DateTime?
 }
