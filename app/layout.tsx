@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ledgerly Life Tracker",
+  title: "Life Tracker",
   description: "A finance and habit tracking dashboard.",
 };
 

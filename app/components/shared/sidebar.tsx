@@ -1,12 +1,23 @@
-const navigationItems = ["Overview", "Accounts", "Budgets", "Habits", "Goals", "Settings"];
+const navigationItems = [
+  { label: "Overview", href: "/" },
+  { label: "Accounts", href: "/accounts" },
+  { label: "Budgets", href: "/" },
+  { label: "Habits", href: "/" },
+  { label: "Goals", href: "/" },
+  { label: "Settings", href: "/" },
+];
 
 export function Sidebar() {
   return (
     <aside className="border-b border-zinc-200 bg-white px-5 py-4 lg:border-b-0 lg:border-r lg:py-6">
       <div className="flex items-center justify-between lg:block">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">Ledgerly</p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-normal">Life tracker</h1>
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
+            Life Tracker
+          </p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-normal">
+            Life tracker
+          </h1>
         </div>
         <button className="rounded-lg bg-zinc-950 px-4 py-2 text-sm font-semibold text-white lg:mt-8 lg:w-full">
           + Log
@@ -16,13 +27,15 @@ export function Sidebar() {
       <nav className="mt-6 flex gap-2 overflow-x-auto text-sm font-medium lg:flex-col lg:overflow-visible">
         {navigationItems.map((item, index) => (
           <a
-            key={item}
+            key={index}
             className={`whitespace-nowrap rounded-lg px-3 py-2 ${
-              index === 0 ? "bg-zinc-950 text-white" : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950"
+              index === 0
+                ? "bg-zinc-950 text-white"
+                : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950"
             }`}
-            href="#"
+            href={item.href}
           >
-            {item}
+            {item.label}
           </a>
         ))}
       </nav>

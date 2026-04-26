@@ -5,6 +5,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { AccountType, Prisma } from "@/app/generated/prisma/client";
 
+export type AccountActionState = {
+  ok: boolean;
+  message?: string;
+};
+
 const balanceSchema = z
   .string()
   .trim()
@@ -18,46 +23,89 @@ const accountSchema = z.object({
 });
 
 function parseAccountForm(formData: FormData) {
-  return accountSchema.parse({
+  return accountSchema.safeParse({
     name: formData.get("name"),
     balance: formData.get("balance"),
     type: formData.get("type"),
   });
 }
 
-export async function createAccount(formData: FormData) {
-  const data = parseAccountForm(formData);
+function getAccountActionError(error: unknown) {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === "P2002") {
+      return "An account with this name already exists.";
+    }
 
-  await prisma.account.create({
-    data: {
-      name: data.name,
-      balance: new Prisma.Decimal(data.balance),
-      type: data.type,
-    },
-  });
+    if (error.code === "P2025") {
+      return "This account no longer exists.";
+    }
+  }
 
-  revalidatePath("/accounts");
+  return "Something went wrong. Please try again.";
 }
 
-export async function updateAccount(id: number, formData: FormData) {
-  const data = parseAccountForm(formData);
+export async function createAccount(formData: FormData): Promise<AccountActionState> {
+  const parsed = parseAccountForm(formData);
 
-  await prisma.account.update({
-    where: { id },
-    data: {
-      name: data.name,
-      balance: new Prisma.Decimal(data.balance),
-      type: data.type,
-    },
-  });
+  if (!parsed.success) {
+    return { ok: false, message: parsed.error.issues[0]?.message ?? "Please check the account details." };
+  }
 
-  revalidatePath("/accounts");
+  try {
+    await prisma.account.create({
+      data: {
+        name: parsed.data.name,
+        balance: new Prisma.Decimal(parsed.data.balance),
+        type: parsed.data.type,
+      },
+    });
+
+    revalidatePath("/accounts");
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: getAccountActionError(error) };
+  }
 }
 
-export async function deleteAccount(id: number) {
-  await prisma.account.delete({
-    where: { id },
-  });
+export async function getAccounts() {
+    return await prisma.account.findMany({
+        orderBy: { id: "asc" },
+    });
+}
 
-  revalidatePath("/accounts");
+export async function updateAccount(id: number, formData: FormData): Promise<AccountActionState> {
+  const parsed = parseAccountForm(formData);
+
+  if (!parsed.success) {
+    return { ok: false, message: parsed.error.issues[0]?.message ?? "Please check the account details." };
+  }
+
+  try {
+    await prisma.account.update({
+      where: { id },
+      data: {
+        name: parsed.data.name,
+        balance: new Prisma.Decimal(parsed.data.balance),
+        type: parsed.data.type,
+      },
+    });
+
+    revalidatePath("/accounts");
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: getAccountActionError(error) };
+  }
+}
+
+export async function deleteAccount(id: number): Promise<AccountActionState> {
+  try {
+    await prisma.account.delete({
+      where: { id },
+    });
+
+    revalidatePath("/accounts");
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: getAccountActionError(error) };
+  }
 }

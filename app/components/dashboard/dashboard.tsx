@@ -3,9 +3,9 @@ import { BudgetsCard } from "./budgets-card";
 import { GoalsCard } from "./goals-card";
 import { HabitWeekCard } from "./habit-week-card";
 import { MoneyFlowCard } from "./money-flow-card";
-import { PageHeader } from "./page-header";
+import { PageHeader } from "../shared/page-header";
 import { RecentActivityCard } from "./recent-activity-card";
-import { Sidebar } from "./sidebar";
+import { Sidebar } from "../shared/sidebar";
 import { StatCard } from "./stat-card";
 import { TodayCard } from "./today-card";
 
@@ -16,7 +16,7 @@ export function Dashboard() {
         <Sidebar />
 
         <div className="px-4 py-5 sm:px-6 lg:px-8">
-          <PageHeader />
+          <PageHeader title="Finance and habits command center"/>
 
           <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <StatCard label="Net worth" value="$74,286" detail="+8.4% over last month" accent="bg-emerald-500" />
