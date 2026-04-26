@@ -1,6 +1,6 @@
-import { todayItems } from "./data";
+import type { DashboardTodayItem } from "@/app/actions/dashboard";
 
-export function TodayCard() {
+export function TodayCard({ items }: { items: DashboardTodayItem[] }) {
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between gap-4">
@@ -12,17 +12,27 @@ export function TodayCard() {
           On track
         </span>
       </div>
-      <div className="mt-5 space-y-3">
-        {todayItems.map((item) => (
-          <div key={item.task} className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 p-3">
-            <div>
-              <p className="font-semibold">{item.task}</p>
-              <p className="mt-1 text-sm text-zinc-500">{item.status}</p>
+
+      {items.length === 0 ? (
+        <p className="mt-5 rounded-lg border border-dashed border-zinc-300 p-4 text-sm font-medium text-zinc-500">
+          Nothing scheduled for today
+        </p>
+      ) : (
+        <div className="mt-5 space-y-3">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 p-3"
+            >
+              <div>
+                <p className="font-semibold">{item.task}</p>
+                <p className="mt-1 text-sm text-zinc-500">{item.status}</p>
+              </div>
+              <p className="text-sm font-semibold text-zinc-700">{item.meta}</p>
             </div>
-            <p className="text-sm font-semibold text-zinc-700">{item.meta}</p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

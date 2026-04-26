@@ -1,3 +1,4 @@
+import { getDashboardData } from "@/app/actions/dashboard";
 import { AccountsCard } from "./accounts-card";
 import { BudgetCard } from "./budget-card";
 import { GoalsCard } from "./goals-card";
@@ -9,7 +10,9 @@ import { Sidebar } from "../shared/sidebar";
 import { StatCard } from "./stat-card";
 import { TodayCard } from "./today-card";
 
-export function Dashboard() {
+export async function Dashboard() {
+  const dashboard = await getDashboardData();
+
   return (
     <main className="min-h-screen bg-[#f6f7f4] text-zinc-950">
       <div className="mx-auto grid min-h-screen w-full max-w-[1500px] grid-cols-1 lg:grid-cols-[248px_1fr]">
@@ -21,44 +24,44 @@ export function Dashboard() {
           <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <StatCard
               label="Net worth"
-              value="$74,286"
-              detail="+8.4% over last month"
+              value={dashboard.stats.netWorth.value}
+              detail={dashboard.stats.netWorth.detail}
               accent="bg-emerald-500"
             />
             <StatCard
               label="Cash flow"
-              value="$2,186"
-              detail="$5,240 in, $3,054 out"
+              value={dashboard.stats.cashFlow.value}
+              detail={dashboard.stats.cashFlow.detail}
               accent="bg-sky-500"
             />
             <StatCard
               label="Budget left"
-              value="$1,124"
-              detail="19 days remaining"
+              value={dashboard.stats.budgetLeft.value}
+              detail={dashboard.stats.budgetLeft.detail}
               accent="bg-amber-500"
             />
             <StatCard
               label="Habit score"
-              value="82%"
-              detail="31 completions this week"
+              value={dashboard.stats.habitScore.value}
+              detail={dashboard.stats.habitScore.detail}
               accent="bg-fuchsia-500"
             />
           </section>
 
           <section className="mt-6 grid gap-6 xl:grid-cols-[1.35fr_0.9fr]">
-            <MoneyFlowCard />
-            <TodayCard />
+            <MoneyFlowCard bars={dashboard.moneyFlowBars} />
+            <TodayCard items={dashboard.todayItems} />
           </section>
 
           <section className="mt-6 grid gap-6 xl:grid-cols-3">
-            <AccountsCard />
-            <BudgetCard />
-            <HabitWeekCard />
+            <AccountsCard accounts={dashboard.accounts} />
+            <BudgetCard budgets={dashboard.budgets} />
+            <HabitWeekCard habits={dashboard.habits} week={dashboard.week} />
           </section>
 
           <section className="mt-6 grid gap-6 xl:grid-cols-[0.95fr_1.25fr]">
-            <GoalsCard />
-            <RecentActivityCard />
+            <GoalsCard goals={dashboard.goals} />
+            <RecentActivityCard rows={dashboard.recentActivity} />
           </section>
         </div>
       </div>

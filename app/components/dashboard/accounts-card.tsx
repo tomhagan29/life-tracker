@@ -1,4 +1,4 @@
-import { getAccounts } from "@/app/actions/accounts";
+import type { DashboardAccount } from "@/app/actions/dashboard";
 
 const accountTone = {
   current: "bg-emerald-500",
@@ -6,9 +6,7 @@ const accountTone = {
   credit: "bg-rose-500",
 };
 
-export async function AccountsCard() {
-  const accounts = await getAccounts();
-
+export function AccountsCard({ accounts }: { accounts: DashboardAccount[] }) {
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
       <h3 className="text-xl font-semibold">Accounts</h3>
@@ -28,7 +26,7 @@ export async function AccountsCard() {
                   <p className="text-sm capitalize text-zinc-500">{account.type}</p>
                 </div>
               </div>
-              <p className="font-semibold">${account.balance.toString()}</p>
+              <p className="font-semibold">{account.balance}</p>
             </div>
           ))}
         </div>

@@ -1,34 +1,12 @@
-import { habits, transactions } from "./data";
+import type { DashboardActivityRow } from "@/app/actions/dashboard";
 import { Column, DataTable } from "@/app/components/shared/data-table"
 
-type ActivityRow = {
-  id: string;
-  entry: string;
-  category: string;
-  date: string;
-  amount: string;
-};
-
-export function RecentActivityCard() {
-
-  const rows: ActivityRow[] = [
-    ...transactions.map((transaction) => ({
-      id: `transaction-${transaction.item}`,
-      entry: transaction.item,
-      category: transaction.category,
-      date: transaction.date,
-      amount: transaction.amount,
-    })),
-    ...habits.slice(0, 3).map((habit) => ({
-      id: `habit-${habit.name}`,
-      entry: habit.name,
-      category: "Habit",
-      date: "Today",
-      amount: habit.mark,
-    })),
-  ];
-
-  const columns: Column<ActivityRow>[] = [
+export function RecentActivityCard({
+  rows,
+}: {
+  rows: DashboardActivityRow[];
+}) {
+  const columns: Column<DashboardActivityRow>[] = [
     {
       key: "entry",
       header: "Entry",
@@ -64,13 +42,15 @@ export function RecentActivityCard() {
             Money moves and habit records
           </p>
         </div>
-
-        <button className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-semibold">
-          Filter
-        </button>
       </div>
 
-      <DataTable rows={rows} columns={columns} getRowKey={(row) => row.id} />
+      {rows.length === 0 ? (
+        <p className="m-5 rounded-lg border border-dashed border-zinc-300 p-4 text-sm font-medium text-zinc-500">
+          No activity yet
+        </p>
+      ) : (
+        <DataTable rows={rows} columns={columns} getRowKey={(row) => row.id} />
+      )}
     </div>
   );
 }
