@@ -1,3 +1,8 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
 const navigationItems = [
   { label: "Overview", href: "/" },
   { label: "Accounts", href: "/accounts" },
@@ -8,6 +13,8 @@ const navigationItems = [
 ];
 
 export function Sidebar() {
+  const pathname = usePathname();
+
   return (
     <aside className="border-b border-zinc-200 bg-white px-5 py-4 lg:border-b-0 lg:border-r lg:py-6">
       <div className="flex items-center justify-between lg:block">
@@ -25,19 +32,26 @@ export function Sidebar() {
       </div>
 
       <nav className="mt-6 flex gap-2 overflow-x-auto text-sm font-medium lg:flex-col lg:overflow-visible">
-        {navigationItems.map((item, index) => (
-          <a
-            key={index}
-            className={`whitespace-nowrap rounded-lg px-3 py-2 ${
-              index === 0
-                ? "bg-zinc-950 text-white"
-                : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950"
-            }`}
-            href={item.href}
-          >
-            {item.label}
-          </a>
-        ))}
+        {navigationItems.map((item) => {
+          const isActive =
+            item.label === "Overview"
+              ? pathname === "/"
+              : item.href !== "/" && pathname.startsWith(item.href);
+
+          return (
+            <Link
+              key={item.label}
+              className={`whitespace-nowrap rounded-lg px-3 py-2 ${
+                isActive
+                  ? "bg-zinc-950 text-white"
+                  : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950"
+              }`}
+              href={item.href}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
 
       <section className="mt-8 hidden rounded-lg border border-zinc-200 bg-[#eef8f2] p-4 lg:block">
