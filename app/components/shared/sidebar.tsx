@@ -7,7 +7,7 @@ const navigationItems = [
   { label: "Overview", href: "/" },
   { label: "Accounts", href: "/accounts" },
   { label: "Budget", href: "/budget" },
-  { label: "Habits", href: "/" },
+  { label: "Habits", href: "/habits" },
   { label: "Goals", href: "/" },
   { label: "Settings", href: "/settings" },
 ];

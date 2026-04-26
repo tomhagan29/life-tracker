@@ -41,6 +41,7 @@ function getCategoryActionError(error: unknown, label: string) {
 function revalidateCategoryPaths() {
   revalidatePath("/settings");
   revalidatePath("/budget");
+  revalidatePath("/habits");
 }
 
 export async function getFinanceCategories() {
