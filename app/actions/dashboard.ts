@@ -42,6 +42,11 @@ export type DashboardMoneyFlowBar = {
   outgoingPercent: number;
 };
 
+export type DashboardMoneyFlow = {
+  month: DashboardMoneyFlowBar[];
+  year: DashboardMoneyFlowBar[];
+};
+
 export type DashboardTodayItem = {
   id: string;
   task: string;
@@ -69,9 +74,14 @@ export type DashboardData = {
   goals: DashboardGoal[];
   habits: DashboardHabit[];
   week: DashboardWeekDay[];
-  moneyFlowBars: DashboardMoneyFlowBar[];
+  moneyFlow: DashboardMoneyFlow;
   todayItems: DashboardTodayItem[];
   recentActivity: DashboardActivityRow[];
+};
+
+export type SidebarSnapshot = {
+  title: string;
+  text: string;
 };
 
 const currencyFormatter = new Intl.NumberFormat("en-GB", {
@@ -92,6 +102,9 @@ const monthFormatter = new Intl.DateTimeFormat("en-GB", { month: "short" });
 const activityDateFormatter = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
   month: "short",
+});
+const snapshotMonthFormatter = new Intl.DateTimeFormat("en-GB", {
+  month: "long",
 });
 
 function formatCurrency(amount: number) {
@@ -167,11 +180,90 @@ function getLastTwelveMonths(today: Date) {
   });
 }
 
+function getCurrentMonthDays(today: Date) {
+  const daysInMonth = new Date(
+    today.getFullYear(),
+    today.getMonth() + 1,
+    0,
+  ).getDate();
+
+  return Array.from({ length: daysInMonth }, (_, index) => {
+    const date = new Date(today.getFullYear(), today.getMonth(), index + 1);
+
+    return {
+      label: String(index + 1),
+      start: date,
+      end: new Date(today.getFullYear(), today.getMonth(), index + 2),
+    };
+  });
+}
+
+export async function getSidebarSnapshot(): Promise<SidebarSnapshot> {
+  const today = new Date();
+  const monthStart = getStartOfMonth(today);
+  const nextMonth = getNextMonth(today);
+
+  const [budgetItems, transactions, habits] = await Promise.all([
+    prisma.budgetItem.findMany({
+      select: { amount: true },
+    }),
+    prisma.transaction.findMany({
+      where: {
+        date: {
+          gte: monthStart,
+          lt: nextMonth,
+        },
+        amount: {
+          lt: 0,
+        },
+      },
+      select: { amount: true },
+    }),
+    prisma.habit.findMany({
+      select: {
+        streak: true,
+        isDaily: true,
+        frequency: true,
+      },
+    }),
+  ]);
+
+  const totalBudget = budgetItems.reduce(
+    (sum, item) => sum + item.amount.toNumber(),
+    0,
+  );
+  const outgoing = transactions.reduce(
+    (sum, transaction) => sum + Math.abs(transaction.amount.toNumber()),
+    0,
+  );
+  const budgetBalance = totalBudget - outgoing;
+  const habitsOnPace = habits.filter((habit) => getHabitProgress(habit) > 0).length;
+
+  const budgetText =
+    totalBudget > 0
+      ? `You are ${formatCurrency(Math.abs(budgetBalance))} ${
+          budgetBalance >= 0 ? "under" : "over"
+        } budget`
+      : "No monthly budget set";
+  const habitText =
+    habits.length > 0
+      ? `${habitsOnPace} of ${habits.length} ${
+          habits.length === 1 ? "habit is" : "habits are"
+        } on pace`
+      : "no habits tracked yet";
+
+  return {
+    title: `${snapshotMonthFormatter.format(today)} snapshot`,
+    text: `${budgetText}, with ${habitText}.`,
+  };
+}
+
 export async function getDashboardData(): Promise<DashboardData> {
   const today = new Date();
   const monthStart = getStartOfMonth(today);
   const nextMonth = getNextMonth(today);
   const months = getLastTwelveMonths(today);
+  const monthDays = getCurrentMonthDays(today);
 
   const [accounts, budgetItems, goals, habits, transactions] = await Promise.all([
     prisma.account.findMany({ orderBy: { id: "asc" } }),
@@ -271,41 +363,50 @@ export async function getDashboardData(): Promise<DashboardData> {
         )
       : 0;
 
-  const maxMonthlyFlow = Math.max(
-    ...months.map((month) =>
-      transactions.reduce((largest, transaction) => {
-        if (transaction.date < month.start || transaction.date >= month.end) {
-          return largest;
-        }
+  function buildMoneyFlowBars(
+    buckets: { label: string; start: Date; end: Date }[],
+  ) {
+    const flowBuckets = buckets.map((bucket) => {
+      const bucketTransactions = transactions.filter(
+        (transaction) =>
+          transaction.date >= bucket.start && transaction.date < bucket.end,
+      );
+      const income = bucketTransactions.reduce((sum, transaction) => {
+        const amount = transaction.amount.toNumber();
+        return amount > 0 ? sum + amount : sum;
+      }, 0);
+      const outgoing = bucketTransactions.reduce((sum, transaction) => {
+        const amount = transaction.amount.toNumber();
+        return amount < 0 ? sum + Math.abs(amount) : sum;
+      }, 0);
 
-        return Math.max(largest, Math.abs(transaction.amount.toNumber()));
-      }, 0),
-    ),
-    0,
-  );
-  const moneyFlowBars = months.map((month) => {
-    const monthFlow = transactions.filter(
-      (transaction) => transaction.date >= month.start && transaction.date < month.end,
+      return {
+        label: bucket.label,
+        income,
+        outgoing,
+      };
+    });
+    const maxFlow = Math.max(
+      ...flowBuckets.map((bucket) => Math.max(bucket.income, bucket.outgoing)),
+      0,
     );
-    const income = monthFlow.reduce((sum, transaction) => {
-      const amount = transaction.amount.toNumber();
-      return amount > 0 ? sum + amount : sum;
-    }, 0);
-    const outgoing = monthFlow.reduce((sum, transaction) => {
-      const amount = transaction.amount.toNumber();
-      return amount < 0 ? sum + Math.abs(amount) : sum;
-    }, 0);
 
-    return {
-      label: month.label,
+    return flowBuckets.map((bucket) => ({
+      label: bucket.label,
       incomePercent:
-        maxMonthlyFlow > 0 ? Math.max(Math.round((income / maxMonthlyFlow) * 100), 4) : 0,
-      outgoingPercent:
-        maxMonthlyFlow > 0
-          ? Math.max(Math.round((outgoing / maxMonthlyFlow) * 100), 4)
+        maxFlow > 0
+          ? Math.max(Math.round((bucket.income / maxFlow) * 100), 4)
           : 0,
-    };
-  });
+      outgoingPercent:
+        maxFlow > 0
+          ? Math.max(Math.round((bucket.outgoing / maxFlow) * 100), 4)
+          : 0,
+    }));
+  }
+  const moneyFlow: DashboardMoneyFlow = {
+    month: buildMoneyFlowBars(monthDays),
+    year: buildMoneyFlowBars(months),
+  };
 
   const todaysDueDay = today.getDate();
   const goalItems = goals
@@ -397,7 +498,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     goals: goalRows,
     habits: habitRows,
     week: getWeek(today, habits),
-    moneyFlowBars,
+    moneyFlow,
     todayItems,
     recentActivity: [...recentTransactions, ...recentHabits, ...recentGoals].slice(0, 8),
   };

@@ -1,6 +1,22 @@
-import type { DashboardMoneyFlowBar } from "@/app/actions/dashboard";
+"use client";
 
-export function MoneyFlowCard({ bars }: { bars: DashboardMoneyFlowBar[] }) {
+import type { DashboardMoneyFlow } from "@/app/actions/dashboard";
+import { useState } from "react";
+
+type MoneyFlowMode = keyof DashboardMoneyFlow;
+
+const modes: { value: MoneyFlowMode; label: string }[] = [
+  { value: "month", label: "Month" },
+  { value: "year", label: "Year" },
+];
+
+export function MoneyFlowCard({
+  moneyFlow,
+}: {
+  moneyFlow: DashboardMoneyFlow;
+}) {
+  const [mode, setMode] = useState<MoneyFlowMode>("month");
+  const bars = moneyFlow[mode];
   const hasFlow = bars.some(
     (bar) => bar.incomePercent > 0 || bar.outgoingPercent > 0,
   );
@@ -9,17 +25,38 @@ export function MoneyFlowCard({ bars }: { bars: DashboardMoneyFlowBar[] }) {
     <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-xl font-semibold">Monthly money flow</h3>
-          <p className="mt-1 text-sm text-zinc-500">Income, bills, savings, and variable spend</p>
+          <h3 className="text-xl font-semibold">Money flow</h3>
+          <p className="mt-1 text-sm text-zinc-500">
+            Income, bills, savings, and variable spend
+          </p>
         </div>
         <div className="flex rounded-lg bg-zinc-100 p-1 text-sm font-semibold">
-          <button className="rounded-md bg-white px-3 py-1.5 shadow-sm">Month</button>
-          <button className="px-3 py-1.5 text-zinc-500">Year</button>
+          {modes.map((item) => {
+            const isActive = item.value === mode;
+
+            return (
+              <button
+                key={item.value}
+                type="button"
+                className={`rounded-md px-3 py-1.5 ${
+                  isActive
+                    ? "bg-white text-zinc-950 shadow-sm"
+                    : "text-zinc-500 hover:text-zinc-950"
+                }`}
+                onClick={() => setMode(item.value)}
+              >
+                {item.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {hasFlow ? (
-        <div className="mt-6 grid h-72 grid-cols-12 items-end gap-2 border-b border-zinc-200 pb-4">
+        <div
+          className="mt-6 grid h-72 items-end gap-2 border-b border-zinc-200 pb-4"
+          style={{ gridTemplateColumns: `repeat(${bars.length}, minmax(0, 1fr))` }}
+        >
           {bars.map((bar) => (
             <div
               key={bar.label}

@@ -61,6 +61,11 @@ function getBudgetItemActionError(error: unknown) {
   return "Something went wrong. Please try again.";
 }
 
+function revalidateBudgetPaths() {
+  revalidatePath("/");
+  revalidatePath("/budget");
+}
+
 export async function createBudgetItem(
   formData: FormData,
 ): Promise<BudgetItemActionState> {
@@ -85,7 +90,7 @@ export async function createBudgetItem(
       },
     });
 
-    revalidatePath("/budget");
+    revalidateBudgetPaths();
     return { ok: true };
   } catch (error) {
     return { ok: false, message: getBudgetItemActionError(error) };
@@ -128,7 +133,7 @@ export async function updateBudgetItem(
       },
     });
 
-    revalidatePath("/budget");
+    revalidateBudgetPaths();
     return { ok: true };
   } catch (error) {
     return { ok: false, message: getBudgetItemActionError(error) };
@@ -143,7 +148,7 @@ export async function deleteBudgetItem(
       where: { id },
     });
 
-    revalidatePath("/budget");
+    revalidateBudgetPaths();
     return { ok: true };
   } catch (error) {
     return { ok: false, message: getBudgetItemActionError(error) };

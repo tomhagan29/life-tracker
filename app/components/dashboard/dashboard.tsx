@@ -49,7 +49,7 @@ export async function Dashboard() {
           </section>
 
           <section className="mt-6 grid gap-6 xl:grid-cols-[1.35fr_0.9fr]">
-            <MoneyFlowCard bars={dashboard.moneyFlowBars} />
+            <MoneyFlowCard moneyFlow={dashboard.moneyFlow} />
             <TodayCard items={dashboard.todayItems} />
           </section>
 

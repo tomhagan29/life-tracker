@@ -3,6 +3,7 @@ import {
   getHabitCategories,
 } from "@/app/actions/categories";
 import { CategoriesTable } from "@/app/components/categories/categories-table";
+import { DataManagementCard } from "@/app/components/settings/data-management-card";
 import { PageHeader } from "@/app/components/shared/page-header";
 import { Sidebar } from "@/app/components/shared/sidebar";
 
@@ -19,6 +20,10 @@ export default async function SettingsPage() {
 
         <div className="px-4 py-5 sm:px-6 lg:px-8">
           <PageHeader title="Settings" />
+
+          <section className="mt-6">
+            <DataManagementCard />
+          </section>
 
           <section className="mt-6 grid gap-6 xl:grid-cols-2">
             <CategoriesTable
