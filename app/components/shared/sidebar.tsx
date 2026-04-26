@@ -8,7 +8,7 @@ const navigationItems = [
   { label: "Accounts", href: "/accounts" },
   { label: "Budget", href: "/budget" },
   { label: "Habits", href: "/habits" },
-  { label: "Goals", href: "/" },
+  { label: "Goals", href: "/goals" },
   { label: "Settings", href: "/settings" },
 ];
 
