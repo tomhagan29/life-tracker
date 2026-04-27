@@ -79,9 +79,15 @@ export type DashboardData = {
   recentActivity: DashboardActivityRow[];
 };
 
+export type SidebarUpcomingBill = {
+  id: number;
+  name: string;
+  amount: string;
+  dueLabel: string;
+};
+
 export type SidebarSnapshot = {
-  title: string;
-  text: string;
+  upcomingBills: SidebarUpcomingBill[];
   quote: {
     text: string;
     author: string;
@@ -106,9 +112,6 @@ const monthFormatter = new Intl.DateTimeFormat("en-GB", { month: "short" });
 const activityDateFormatter = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
   month: "short",
-});
-const snapshotMonthFormatter = new Intl.DateTimeFormat("en-GB", {
-  month: "long",
 });
 
 function formatCurrency(amount: number) {
@@ -154,6 +157,56 @@ function getStartOfMonth(date: Date) {
 
 function getNextMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth() + 1, 1);
+}
+
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function getBudgetDueDate(today: Date, dueDay: number) {
+  const startOfToday = getStartOfDay(today);
+  const currentMonthDueDay = Math.min(
+    dueDay,
+    getDaysInMonth(today.getFullYear(), today.getMonth()),
+  );
+  const currentMonthDueDate = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    currentMonthDueDay,
+  );
+
+  if (currentMonthDueDate >= startOfToday) {
+    return currentMonthDueDate;
+  }
+
+  const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+  const nextMonthDueDay = Math.min(
+    dueDay,
+    getDaysInMonth(nextMonth.getFullYear(), nextMonth.getMonth()),
+  );
+
+  return new Date(nextMonth.getFullYear(), nextMonth.getMonth(), nextMonthDueDay);
+}
+
+function getDueLabel(today: Date, dueDate: Date) {
+  const daysUntil = Math.round(
+    (getStartOfDay(dueDate).getTime() - getStartOfDay(today).getTime()) /
+      86_400_000,
+  );
+
+  if (daysUntil === 0) {
+    return "Due today";
+  }
+
+  if (daysUntil === 1) {
+    return "Due tomorrow";
+  }
+
+  if (daysUntil <= 7) {
+    return `Due in ${daysUntil} days`;
+  }
+
+  return `Due ${activityDateFormatter.format(dueDate)}`;
 }
 
 function getGoalProgress(currentAmount: number | null, targetAmount: number | null) {
@@ -235,74 +288,46 @@ function getCurrentMonthDays(today: Date) {
 
 export async function getSidebarSnapshot(): Promise<SidebarSnapshot> {
   const today = new Date();
-  const weekStart = getStartOfWeek(today);
-  const nextWeek = getNextWeek(today);
-  const monthStart = getStartOfMonth(today);
-  const nextMonth = getNextMonth(today);
+  const budgetItems = await prisma.budgetItem.findMany({
+    where: { dueDay: { not: null } },
+    orderBy: { id: "asc" },
+    select: {
+      id: true,
+      name: true,
+      amount: true,
+      dueDay: true,
+    },
+  });
 
-  const [budgetItems, transactions, habits] = await Promise.all([
-    prisma.budgetItem.findMany({
-      select: { amount: true },
-    }),
-    prisma.transaction.findMany({
-      where: {
-        date: {
-          gte: monthStart,
-          lt: nextMonth,
-        },
-        amount: {
-          lt: 0,
-        },
-      },
-      select: { amount: true, transferAccountId: true },
-    }),
-    prisma.habit.findMany({
-      select: {
-        isDaily: true,
-        frequency: true,
-        completions: {
-          where: {
-            date: {
-              gte: weekStart,
-              lt: nextWeek,
-            },
-          },
-          select: { date: true },
-        },
-      },
-    }),
-  ]);
+  const upcomingBills = budgetItems
+    .flatMap((item) => {
+      if (item.dueDay === null) {
+        return [];
+      }
 
-  const totalBudget = budgetItems.reduce(
-    (sum, item) => sum + item.amount.toNumber(),
-    0,
-  );
-  const outgoing = transactions.reduce(
-    (sum, transaction) =>
-      transaction.transferAccountId === null
-        ? sum + Math.abs(transaction.amount.toNumber())
-        : sum,
-    0,
-  );
-  const budgetBalance = totalBudget - outgoing;
-  const habitsOnPace = habits.filter((habit) => getHabitProgress(habit) > 0).length;
+      const dueDate = getBudgetDueDate(today, item.dueDay);
 
-  const budgetText =
-    totalBudget > 0
-      ? `You are ${formatCurrency(Math.abs(budgetBalance))} ${
-          budgetBalance >= 0 ? "under" : "over"
-        } budget`
-      : "No monthly budget set";
-  const habitText =
-    habits.length > 0
-      ? `${habitsOnPace} of ${habits.length} ${
-          habits.length === 1 ? "habit is" : "habits are"
-        } on pace`
-      : "no habits tracked yet";
+      return [
+        {
+          id: item.id,
+          name: item.name,
+          amount: formatDetailedCurrency(item.amount.toNumber()),
+          dueLabel: getDueLabel(today, dueDate),
+          dueTime: dueDate.getTime(),
+        },
+      ];
+    })
+    .sort((a, b) => a.dueTime - b.dueTime)
+    .slice(0, 4)
+    .map((bill) => ({
+      id: bill.id,
+      name: bill.name,
+      amount: bill.amount,
+      dueLabel: bill.dueLabel,
+    }));
 
   return {
-    title: `${snapshotMonthFormatter.format(today)} snapshot`,
-    text: `${budgetText}, with ${habitText}.`,
+    upcomingBills,
     quote: getDailyQuote(today),
   };
 }

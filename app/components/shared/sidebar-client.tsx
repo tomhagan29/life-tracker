@@ -7,8 +7,12 @@ import { LogModal } from "./log-modal";
 
 type SidebarClientProps = {
   snapshot: {
-    title: string;
-    text: string;
+    upcomingBills: {
+      id: number;
+      name: string;
+      amount: string;
+      dueLabel: string;
+    }[];
     quote: {
       text: string;
       author: string;
@@ -74,12 +78,30 @@ export function SidebarClient({ snapshot }: SidebarClientProps) {
         </nav>
 
         <section className="mt-8 hidden rounded-lg border border-zinc-200 bg-[#eef8f2] p-4 lg:block">
-          <p className="text-sm font-semibold text-zinc-950">
-            {snapshot.title}
-          </p>
-          <p className="mt-2 text-sm leading-6 text-zinc-600">
-            {snapshot.text}
-          </p>
+          <p className="text-sm font-semibold text-zinc-950">Upcoming bills</p>
+          {snapshot.upcomingBills.length === 0 ? (
+            <p className="mt-2 text-sm leading-6 text-zinc-600">
+              No upcoming bills
+            </p>
+          ) : (
+            <div className="mt-3 space-y-3">
+              {snapshot.upcomingBills.map((bill) => (
+                <div key={bill.id} className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-zinc-950">
+                      {bill.name}
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-zinc-500">
+                      {bill.dueLabel}
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-sm font-semibold text-zinc-700">
+                    {bill.amount}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="mt-3 hidden rounded-lg border border-zinc-200 bg-[#f7f4ee] p-4 lg:block">
