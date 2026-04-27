@@ -7,7 +7,7 @@ import {
   type DailyLogOptions,
 } from "@/app/actions/daily-log";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type TransactionDraft = {
   id: number;
@@ -22,8 +22,6 @@ type LogModalProps = {
   onClose: () => void;
 };
 
-const today = new Date().toISOString().slice(0, 10);
-
 function createTransactionDraft(): TransactionDraft {
   return {
     id: Date.now() + Math.floor(Math.random() * 1000),
@@ -34,35 +32,65 @@ function createTransactionDraft(): TransactionDraft {
   };
 }
 
+function getTodayDateString() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function LogModal({ open, onClose }: LogModalProps) {
   const router = useRouter();
   const [options, setOptions] = useState<DailyLogOptions | null>(null);
-  const hasRequestedOptions = useRef(false);
   const [transactions, setTransactions] = useState<TransactionDraft[]>([
     createTransactionDraft(),
   ]);
   const [completedHabitIds, setCompletedHabitIds] = useState<number[]>([]);
-  const [logDate, setLogDate] = useState(today);
+  const [logDate, setLogDate] = useState(getTodayDateString);
   const [actionState, setActionState] = useState<DailyLogActionState>({
     ok: true,
   });
   const [pending, setPending] = useState(false);
 
   useEffect(() => {
-    if (!open || options || hasRequestedOptions.current) {
+    if (!open) {
       return;
     }
 
-    hasRequestedOptions.current = true;
-    getDailyLogOptions()
-      .then(setOptions)
-      .catch(() =>
+    let cancelled = false;
+
+    getDailyLogOptions(logDate)
+      .then((dailyLogOptions) => {
+        if (cancelled) {
+          return;
+        }
+
+        setOptions(dailyLogOptions);
+        setTransactions(
+          dailyLogOptions.transactions.length > 0
+            ? dailyLogOptions.transactions.map((transaction) => ({
+                id: transaction.id,
+                direction: transaction.direction,
+                amount: transaction.amount,
+                accountId: String(transaction.accountId),
+                categoryId: String(transaction.categoryId),
+              }))
+            : [createTransactionDraft()],
+        );
+        setCompletedHabitIds(dailyLogOptions.completedHabitIds);
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+
         setActionState({
           ok: false,
           message: "Could not load log options. Please try again.",
-        }),
-      );
-  }, [open, options]);
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, logDate]);
 
   const canAddTransactions = useMemo(
     () =>
@@ -108,7 +136,7 @@ export function LogModal({ open, onClose }: LogModalProps) {
   function resetForm() {
     setTransactions([createTransactionDraft()]);
     setCompletedHabitIds([]);
-    setLogDate(today);
+    setLogDate(getTodayDateString());
     setActionState({ ok: true });
   }
 
@@ -133,7 +161,6 @@ export function LogModal({ open, onClose }: LogModalProps) {
     setPending(false);
 
     if (result.ok) {
-      resetForm();
       router.refresh();
       onClose();
     }
@@ -167,7 +194,7 @@ export function LogModal({ open, onClose }: LogModalProps) {
           </div>
         )}
 
-        {loadingOptions ? (
+        {loadingOptions && !options ? (
           <p className="p-5 text-sm font-medium text-zinc-500">Loading log options...</p>
         ) : (
           <form onSubmit={handleSubmit}>
@@ -180,7 +207,13 @@ export function LogModal({ open, onClose }: LogModalProps) {
                   id="log-date"
                   type="date"
                   value={logDate}
-                  onChange={(event) => setLogDate(event.target.value)}
+                  onChange={(event) => {
+                    setActionState({ ok: true });
+                    setOptions(null);
+                    setTransactions([createTransactionDraft()]);
+                    setCompletedHabitIds([]);
+                    setLogDate(event.target.value);
+                  }}
                   className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5"
                 />
               </div>

@@ -14,12 +14,20 @@ export type DailyLogActionState = {
 export type DailyLogOptions = {
   accounts: { id: number; name: string }[];
   categories: { id: number; name: string }[];
+  transactions: {
+    id: number;
+    direction: "income" | "outgoing";
+    amount: string;
+    accountId: number;
+    categoryId: number;
+  }[];
   habits: {
     id: number;
     name: string;
     streak: number;
     schedule: string;
   }[];
+  completedHabitIds: number[];
 };
 
 const transactionDraftSchema = z.object({
@@ -63,6 +71,14 @@ function parseLogDate(date: string) {
   return new Date(`${date}T12:00:00`);
 }
 
+function getLogDateRange(date: string) {
+  const start = new Date(`${date}T00:00:00`);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+
+  return { start, end };
+}
+
 function getDailyLogActionError(error: unknown) {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === "P2003") {
@@ -90,37 +106,85 @@ function revalidateDailyLogPaths() {
   revalidatePath("/settings");
 }
 
-export async function getDailyLogOptions(): Promise<DailyLogOptions> {
-  const [accounts, categories, habits] = await Promise.all([
-    prisma.account.findMany({
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    prisma.financeCategory.findMany({
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    prisma.habit.findMany({
-      orderBy: { name: "asc" },
-      select: {
-        id: true,
-        name: true,
-        streak: true,
-        isDaily: true,
-        frequency: true,
-      },
-    }),
-  ]);
+export async function getDailyLogOptions(date: string): Promise<DailyLogOptions> {
+  const parsedDate = z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .safeParse(date);
+  const logDate = parsedDate.success
+    ? parsedDate.data
+    : new Date().toISOString().slice(0, 10);
+  const dateRange = getLogDateRange(logDate);
+
+  const [accounts, categories, transactions, habits, habitCompletions] =
+    await Promise.all([
+      prisma.account.findMany({
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      }),
+      prisma.financeCategory.findMany({
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      }),
+      prisma.transaction.findMany({
+        where: {
+          date: {
+            gte: dateRange.start,
+            lt: dateRange.end,
+          },
+        },
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          amount: true,
+          accountId: true,
+          categoryId: true,
+        },
+      }),
+      prisma.habit.findMany({
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+          streak: true,
+          isDaily: true,
+          frequency: true,
+        },
+      }),
+      prisma.habitCompletion.findMany({
+        where: {
+          date: {
+            gte: dateRange.start,
+            lt: dateRange.end,
+          },
+        },
+        select: { habitId: true },
+      }),
+    ]);
 
   return {
     accounts,
     categories,
+    transactions: transactions.map((transaction) => {
+      const amount = transaction.amount.toNumber();
+
+      return {
+        id: transaction.id,
+        direction: amount >= 0 ? "income" : "outgoing",
+        amount: Math.abs(amount).toString(),
+        accountId: transaction.accountId,
+        categoryId: transaction.categoryId,
+      };
+    }),
     habits: habits.map((habit) => ({
       id: habit.id,
       name: habit.name,
       streak: habit.streak,
       schedule: habit.isDaily ? "Daily" : `${habit.frequency ?? 0}/week`,
     })),
+    completedHabitIds: habitCompletions.map(
+      (habitCompletion) => habitCompletion.habitId,
+    ),
   };
 }
 
@@ -137,21 +201,63 @@ export async function submitDailyLog(
     };
   }
 
-  if (
-    parsed.data.transactions.length === 0 &&
-    parsed.data.habitIds.length === 0
-  ) {
-    return {
-      ok: false,
-      message: "Add at least one transaction or completed habit.",
-    };
-  }
-
   try {
     const date = parseLogDate(parsed.data.date);
+    const dateRange = getLogDateRange(parsed.data.date);
     const habitIds = Array.from(new Set(parsed.data.habitIds));
 
     await prisma.$transaction(async (tx) => {
+      const existingTransactions = await tx.transaction.findMany({
+        where: {
+          date: {
+            gte: dateRange.start,
+            lt: dateRange.end,
+          },
+        },
+        select: {
+          amount: true,
+          accountId: true,
+        },
+      });
+      const existingHabitCompletions = await tx.habitCompletion.findMany({
+        where: {
+          date: {
+            gte: dateRange.start,
+            lt: dateRange.end,
+          },
+        },
+        select: { habitId: true },
+      });
+      const existingHabitIds = existingHabitCompletions.map(
+        (habitCompletion) => habitCompletion.habitId,
+      );
+      const habitIdsToAdd = habitIds.filter(
+        (habitId) => !existingHabitIds.includes(habitId),
+      );
+      const habitIdsToRemove = existingHabitIds.filter(
+        (habitId) => !habitIds.includes(habitId),
+      );
+
+      for (const transaction of existingTransactions) {
+        await tx.account.update({
+          where: { id: transaction.accountId },
+          data: {
+            balance: {
+              increment: transaction.amount.mul(-1),
+            },
+          },
+        });
+      }
+
+      await tx.transaction.deleteMany({
+        where: {
+          date: {
+            gte: dateRange.start,
+            lt: dateRange.end,
+          },
+        },
+      });
+
       for (const transaction of parsed.data.transactions) {
         const signedAmount =
           transaction.direction === "income"
@@ -178,12 +284,44 @@ export async function submitDailyLog(
         });
       }
 
-      for (const habitId of habitIds) {
+      if (habitIdsToAdd.length > 0) {
+        await tx.habitCompletion.createMany({
+          data: habitIdsToAdd.map((habitId) => ({
+            habitId,
+            date,
+          })),
+        });
+      }
+
+      if (habitIdsToRemove.length > 0) {
+        await tx.habitCompletion.deleteMany({
+          where: {
+            habitId: { in: habitIdsToRemove },
+            date: {
+              gte: dateRange.start,
+              lt: dateRange.end,
+            },
+          },
+        });
+      }
+
+      for (const habitId of habitIdsToAdd) {
         await tx.habit.update({
           where: { id: habitId },
           data: {
             streak: {
               increment: 1,
+            },
+          },
+        });
+      }
+
+      for (const habitId of habitIdsToRemove) {
+        await tx.habit.updateMany({
+          where: { id: habitId, streak: { gt: 0 } },
+          data: {
+            streak: {
+              decrement: 1,
             },
           },
         });

@@ -60,6 +60,16 @@ const importDataSchema = z.object({
         frequency: z.number().int().min(1).max(7).nullable(),
       }),
     ),
+    habitCompletions: z
+      .array(
+        z.object({
+          id: z.number().int().positive(),
+          date: z.string().datetime(),
+          habitId: z.number().int().positive(),
+        }),
+      )
+      .optional()
+      .default([]),
     budgetItems: z.array(
       z.object({
         id: z.number().int().positive(),
@@ -126,6 +136,7 @@ function toDate(value: string | null) {
 
 async function deleteAllData(tx: Prisma.TransactionClient) {
   await tx.checkInComment.deleteMany();
+  await tx.habitCompletion.deleteMany();
   await tx.transaction.deleteMany();
   await tx.budgetItem.deleteMany();
   await tx.habit.deleteMany();
@@ -162,6 +173,7 @@ export async function exportUserData() {
     accounts,
     transactions,
     habits,
+    habitCompletions,
     budgetItems,
     goals,
     goalMilestones,
@@ -173,6 +185,7 @@ export async function exportUserData() {
     prisma.account.findMany({ orderBy: { id: "asc" } }),
     prisma.transaction.findMany({ orderBy: { id: "asc" } }),
     prisma.habit.findMany({ orderBy: { id: "asc" } }),
+    prisma.habitCompletion.findMany({ orderBy: { id: "asc" } }),
     prisma.budgetItem.findMany({ orderBy: { id: "asc" } }),
     prisma.goal.findMany({ orderBy: { id: "asc" } }),
     prisma.goalMilestone.findMany({ orderBy: { id: "asc" } }),
@@ -196,6 +209,10 @@ export async function exportUserData() {
         amount: transaction.amount.toString(),
       })),
       habits,
+      habitCompletions: habitCompletions.map((habitCompletion) => ({
+        ...habitCompletion,
+        date: habitCompletion.date.toISOString(),
+      })),
       budgetItems: budgetItems.map((budgetItem) => ({
         ...budgetItem,
         amount: budgetItem.amount.toString(),
@@ -281,6 +298,12 @@ export async function importUserData(
         })),
       });
       await tx.habit.createMany({ data: data.habits });
+      await tx.habitCompletion.createMany({
+        data: data.habitCompletions.map((habitCompletion) => ({
+          ...habitCompletion,
+          date: new Date(habitCompletion.date),
+        })),
+      });
       await tx.budgetItem.createMany({
         data: data.budgetItems.map((budgetItem) => ({
           ...budgetItem,

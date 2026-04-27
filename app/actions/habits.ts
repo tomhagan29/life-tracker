@@ -164,8 +164,14 @@ export async function updateHabit(
 
 export async function deleteHabit(id: number): Promise<HabitActionState> {
   try {
-    await prisma.habit.delete({
-      where: { id },
+    await prisma.$transaction(async (tx) => {
+      await tx.habitCompletion.deleteMany({
+        where: { habitId: id },
+      });
+
+      await tx.habit.delete({
+        where: { id },
+      });
     });
 
     revalidateHabitPaths();
