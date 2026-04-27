@@ -16,6 +16,7 @@ export type UserDataActionState = {
 
 const decimalStringSchema = z.union([z.string().min(1), z.number()]).transform(String);
 const nullableDateSchema = z.string().datetime().nullable();
+const nullablePositiveIdSchema = z.number().int().positive().nullable().optional();
 
 const importDataSchema = z.object({
   version: z.literal(1),
@@ -46,8 +47,9 @@ const importDataSchema = z.object({
         id: z.number().int().positive(),
         date: z.string().datetime(),
         amount: decimalStringSchema,
-        categoryId: z.number().int().positive(),
+        categoryId: nullablePositiveIdSchema,
         accountId: z.number().int().positive(),
+        transferAccountId: nullablePositiveIdSchema,
       }),
     ),
     habits: z.array(
@@ -295,6 +297,8 @@ export async function importUserData(
           ...transaction,
           date: new Date(transaction.date),
           amount: new Prisma.Decimal(transaction.amount),
+          categoryId: transaction.categoryId ?? null,
+          transferAccountId: transaction.transferAccountId ?? null,
         })),
       });
       await tx.habit.createMany({ data: data.habits });

@@ -255,7 +255,7 @@ export async function getSidebarSnapshot(): Promise<SidebarSnapshot> {
           lt: 0,
         },
       },
-      select: { amount: true },
+      select: { amount: true, transferAccountId: true },
     }),
     prisma.habit.findMany({
       select: {
@@ -279,7 +279,10 @@ export async function getSidebarSnapshot(): Promise<SidebarSnapshot> {
     0,
   );
   const outgoing = transactions.reduce(
-    (sum, transaction) => sum + Math.abs(transaction.amount.toNumber()),
+    (sum, transaction) =>
+      transaction.transferAccountId === null
+        ? sum + Math.abs(transaction.amount.toNumber())
+        : sum,
     0,
   );
   const budgetBalance = totalBudget - outgoing;
@@ -344,7 +347,7 @@ export async function getDashboardData(): Promise<DashboardData> {
         },
       },
       orderBy: { date: "desc" },
-      include: { account: true, category: true },
+      include: { account: true, category: true, transferAccount: true },
     }),
   ]);
 
@@ -364,10 +367,18 @@ export async function getDashboardData(): Promise<DashboardData> {
     (transaction) => transaction.date >= monthStart && transaction.date < nextMonth,
   );
   const monthlyIncome = monthTransactions.reduce((sum, transaction) => {
+    if (transaction.transferAccountId !== null) {
+      return sum;
+    }
+
     const amount = transaction.amount.toNumber();
     return amount > 0 ? sum + amount : sum;
   }, 0);
   const monthlyOutgoing = monthTransactions.reduce((sum, transaction) => {
+    if (transaction.transferAccountId !== null) {
+      return sum;
+    }
+
     const amount = transaction.amount.toNumber();
     return amount < 0 ? sum + Math.abs(amount) : sum;
   }, 0);
@@ -436,10 +447,18 @@ export async function getDashboardData(): Promise<DashboardData> {
           transaction.date >= bucket.start && transaction.date < bucket.end,
       );
       const income = bucketTransactions.reduce((sum, transaction) => {
+        if (transaction.transferAccountId !== null) {
+          return sum;
+        }
+
         const amount = transaction.amount.toNumber();
         return amount > 0 ? sum + amount : sum;
       }, 0);
       const outgoing = bucketTransactions.reduce((sum, transaction) => {
+        if (transaction.transferAccountId !== null) {
+          return sum;
+        }
+
         const amount = transaction.amount.toNumber();
         return amount < 0 ? sum + Math.abs(amount) : sum;
       }, 0);
@@ -503,13 +522,24 @@ export async function getDashboardData(): Promise<DashboardData> {
   }));
   const todayItems = [...goalItems, ...budgetItemsDueToday, ...habitItems].slice(0, 4);
 
-  const recentTransactions = transactions.slice(0, 6).map((transaction) => ({
-    id: `transaction-${transaction.id}`,
-    entry: transaction.category.name,
-    category: transaction.account.name,
-    date: activityDateFormatter.format(transaction.date),
-    amount: formatDetailedCurrency(transaction.amount.toNumber()),
-  }));
+  const recentTransactions = transactions.slice(0, 6).map((transaction) => {
+    const isTransfer = transaction.transferAccountId !== null;
+
+    return {
+      id: `transaction-${transaction.id}`,
+      entry: isTransfer ? "Transfer" : transaction.category?.name ?? "Uncategorised",
+      category:
+        isTransfer && transaction.transferAccount
+          ? `${transaction.account.name} to ${transaction.transferAccount.name}`
+          : transaction.account.name,
+      date: activityDateFormatter.format(transaction.date),
+      amount: formatDetailedCurrency(
+        isTransfer
+          ? Math.abs(transaction.amount.toNumber())
+          : transaction.amount.toNumber(),
+      ),
+    };
+  });
   const recentHabits = habits.slice(0, 3).map((habit) => ({
     id: `habit-${habit.id}`,
     entry: habit.name,

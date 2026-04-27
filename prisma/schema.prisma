@@ -48,7 +48,8 @@ model Account {
   name String @unique
   balance Decimal
   type AccountType
-  transactions Transaction[]
+  transactions Transaction[] @relation("AccountTransactions")
+  incomingTransfers Transaction[] @relation("TransferDestination")
   budgetItems BudgetItem[]
 }
 
@@ -56,10 +57,12 @@ model Transaction {
   id Int @id @default(autoincrement())
   date DateTime @default(now())
   amount Decimal
-  category FinanceCategory @relation(fields: [categoryId], references: [id])
-  categoryId Int
-  account Account @relation(fields: [accountId], references: [id])
+  category FinanceCategory? @relation(fields: [categoryId], references: [id])
+  categoryId Int?
+  account Account @relation("AccountTransactions", fields: [accountId], references: [id])
   accountId Int
+  transferAccount Account? @relation("TransferDestination", fields: [transferAccountId], references: [id])
+  transferAccountId Int?
 }
 
 model Habit {

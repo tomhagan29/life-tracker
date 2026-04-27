@@ -16,10 +16,11 @@ export type DailyLogOptions = {
   categories: { id: number; name: string }[];
   transactions: {
     id: number;
-    direction: "income" | "outgoing";
+    direction: "income" | "outgoing" | "transfer";
     amount: string;
     accountId: number;
-    categoryId: number;
+    categoryId: number | null;
+    transferAccountId: number | null;
   }[];
   habits: {
     id: number;
@@ -30,14 +31,50 @@ export type DailyLogOptions = {
   completedHabitIds: number[];
 };
 
-const transactionDraftSchema = z.object({
-  amount: currencySchema.refine((amount) => amount > 0, {
-    message: "Transaction amount must be greater than zero",
-  }),
-  direction: z.enum(["income", "outgoing"]),
-  accountId: z.coerce.number().int().positive("Account is required"),
-  categoryId: z.coerce.number().int().positive("Category is required"),
-});
+const optionalPositiveIdSchema = z.preprocess(
+  (value) => (value === "" ? null : value),
+  z.coerce.number().int().positive().nullable().optional(),
+);
+
+const transactionDraftSchema = z
+  .object({
+    amount: currencySchema.refine((amount) => amount > 0, {
+      message: "Transaction amount must be greater than zero",
+    }),
+    direction: z.enum(["income", "outgoing", "transfer"]),
+    accountId: z.coerce.number().int().positive("Account is required"),
+    categoryId: optionalPositiveIdSchema,
+    transferAccountId: optionalPositiveIdSchema,
+  })
+  .superRefine((transaction, context) => {
+    if (transaction.direction === "transfer") {
+      if (!transaction.transferAccountId) {
+        context.addIssue({
+          code: "custom",
+          path: ["transferAccountId"],
+          message: "Destination account is required",
+        });
+      }
+
+      if (transaction.transferAccountId === transaction.accountId) {
+        context.addIssue({
+          code: "custom",
+          path: ["transferAccountId"],
+          message: "Choose a different destination account",
+        });
+      }
+
+      return;
+    }
+
+    if (!transaction.categoryId) {
+      context.addIssue({
+        code: "custom",
+        path: ["categoryId"],
+        message: "Category is required",
+      });
+    }
+  });
 
 const dailyLogSchema = z.object({
   date: z
@@ -106,6 +143,82 @@ function revalidateDailyLogPaths() {
   revalidatePath("/settings");
 }
 
+type BalanceTransaction = {
+  amount: Prisma.Decimal;
+  accountId: number;
+  transferAccountId: number | null;
+};
+
+async function applyTransactionBalance(
+  tx: Prisma.TransactionClient,
+  transaction: BalanceTransaction,
+) {
+  if (transaction.transferAccountId) {
+    await tx.account.update({
+      where: { id: transaction.accountId },
+      data: {
+        balance: {
+          decrement: transaction.amount,
+        },
+      },
+    });
+    await tx.account.update({
+      where: { id: transaction.transferAccountId },
+      data: {
+        balance: {
+          increment: transaction.amount,
+        },
+      },
+    });
+
+    return;
+  }
+
+  await tx.account.update({
+    where: { id: transaction.accountId },
+    data: {
+      balance: {
+        increment: transaction.amount,
+      },
+    },
+  });
+}
+
+async function revertTransactionBalance(
+  tx: Prisma.TransactionClient,
+  transaction: BalanceTransaction,
+) {
+  if (transaction.transferAccountId) {
+    await tx.account.update({
+      where: { id: transaction.accountId },
+      data: {
+        balance: {
+          increment: transaction.amount,
+        },
+      },
+    });
+    await tx.account.update({
+      where: { id: transaction.transferAccountId },
+      data: {
+        balance: {
+          decrement: transaction.amount,
+        },
+      },
+    });
+
+    return;
+  }
+
+  await tx.account.update({
+    where: { id: transaction.accountId },
+    data: {
+      balance: {
+        increment: transaction.amount.mul(-1),
+      },
+    },
+  });
+}
+
 export async function getDailyLogOptions(date: string): Promise<DailyLogOptions> {
   const parsedDate = z
     .string()
@@ -139,6 +252,7 @@ export async function getDailyLogOptions(date: string): Promise<DailyLogOptions>
           amount: true,
           accountId: true,
           categoryId: true,
+          transferAccountId: true,
         },
       }),
       prisma.habit.findMany({
@@ -167,13 +281,15 @@ export async function getDailyLogOptions(date: string): Promise<DailyLogOptions>
     categories,
     transactions: transactions.map((transaction) => {
       const amount = transaction.amount.toNumber();
+      const isTransfer = transaction.transferAccountId !== null;
 
       return {
         id: transaction.id,
-        direction: amount >= 0 ? "income" : "outgoing",
+        direction: isTransfer ? "transfer" : amount >= 0 ? "income" : "outgoing",
         amount: Math.abs(amount).toString(),
         accountId: transaction.accountId,
         categoryId: transaction.categoryId,
+        transferAccountId: transaction.transferAccountId,
       };
     }),
     habits: habits.map((habit) => ({
@@ -217,6 +333,7 @@ export async function submitDailyLog(
         select: {
           amount: true,
           accountId: true,
+          transferAccountId: true,
         },
       });
       const existingHabitCompletions = await tx.habitCompletion.findMany({
@@ -239,14 +356,7 @@ export async function submitDailyLog(
       );
 
       for (const transaction of existingTransactions) {
-        await tx.account.update({
-          where: { id: transaction.accountId },
-          data: {
-            balance: {
-              increment: transaction.amount.mul(-1),
-            },
-          },
-        });
+        await revertTransactionBalance(tx, transaction);
       }
 
       await tx.transaction.deleteMany({
@@ -259,6 +369,33 @@ export async function submitDailyLog(
       });
 
       for (const transaction of parsed.data.transactions) {
+        if (transaction.direction === "transfer") {
+          const transferAccountId = transaction.transferAccountId;
+
+          if (!transferAccountId) {
+            throw new Error("Destination account is required");
+          }
+
+          const amount = new Prisma.Decimal(Math.abs(transaction.amount));
+
+          await tx.transaction.create({
+            data: {
+              date,
+              amount,
+              accountId: transaction.accountId,
+              transferAccountId,
+            },
+          });
+
+          await applyTransactionBalance(tx, {
+            amount,
+            accountId: transaction.accountId,
+            transferAccountId,
+          });
+
+          continue;
+        }
+
         const signedAmount =
           transaction.direction === "income"
             ? Math.abs(transaction.amount)
@@ -274,13 +411,10 @@ export async function submitDailyLog(
           },
         });
 
-        await tx.account.update({
-          where: { id: transaction.accountId },
-          data: {
-            balance: {
-              increment: amount,
-            },
-          },
+        await applyTransactionBalance(tx, {
+          amount,
+          accountId: transaction.accountId,
+          transferAccountId: null,
         });
       }
 

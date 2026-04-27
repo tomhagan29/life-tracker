@@ -11,10 +11,11 @@ import { useEffect, useMemo, useState } from "react";
 
 type TransactionDraft = {
   id: number;
-  direction: "outgoing" | "income";
+  direction: "outgoing" | "income" | "transfer";
   amount: string;
   accountId: string;
   categoryId: string;
+  transferAccountId: string;
 };
 
 type LogModalProps = {
@@ -29,6 +30,7 @@ function createTransactionDraft(): TransactionDraft {
     amount: "",
     accountId: "",
     categoryId: "",
+    transferAccountId: "",
   };
 }
 
@@ -70,7 +72,12 @@ export function LogModal({ open, onClose }: LogModalProps) {
                 direction: transaction.direction,
                 amount: transaction.amount,
                 accountId: String(transaction.accountId),
-                categoryId: String(transaction.categoryId),
+                categoryId: transaction.categoryId
+                  ? String(transaction.categoryId)
+                  : "",
+                transferAccountId: transaction.transferAccountId
+                  ? String(transaction.transferAccountId)
+                  : "",
               }))
             : [createTransactionDraft()],
         );
@@ -95,7 +102,9 @@ export function LogModal({ open, onClose }: LogModalProps) {
   const canAddTransactions = useMemo(
     () =>
       Boolean(
-        options && options.accounts.length > 0 && options.categories.length > 0,
+        options &&
+          options.accounts.length > 0 &&
+          (options.categories.length > 0 || options.accounts.length > 1),
       ),
     [options],
   );
@@ -112,7 +121,18 @@ export function LogModal({ open, onClose }: LogModalProps) {
   ) {
     setTransactions((current) =>
       current.map((transaction) =>
-        transaction.id === id ? { ...transaction, [field]: value } : transaction,
+        transaction.id === id
+          ? {
+              ...transaction,
+              [field]: value,
+              ...(field === "direction" && value === "transfer"
+                ? { categoryId: "" }
+                : {}),
+              ...(field === "direction" && value !== "transfer"
+                ? { transferAccountId: "" }
+                : {}),
+            }
+          : transaction,
       ),
     );
   }
@@ -149,7 +169,8 @@ export function LogModal({ open, onClose }: LogModalProps) {
       (transaction) =>
         transaction.amount.trim() !== "" ||
         transaction.accountId !== "" ||
-        transaction.categoryId !== "",
+        transaction.categoryId !== "" ||
+        transaction.transferAccountId !== "",
     );
     const formData = new FormData();
     formData.set("date", logDate);
@@ -223,7 +244,7 @@ export function LogModal({ open, onClose }: LogModalProps) {
                   <div>
                     <h3 className="font-semibold">Transactions</h3>
                     <p className="mt-1 text-sm text-zinc-500">
-                      Income adds to the account, outgoing subtracts from it
+                      Income adds, outgoing subtracts, transfers move money between accounts
                     </p>
                   </div>
                   <button
@@ -243,8 +264,7 @@ export function LogModal({ open, onClose }: LogModalProps) {
 
                 {!canAddTransactions && (
                   <p className="mt-3 rounded-lg border border-amber-100 bg-amber-50 p-3 text-sm font-medium text-amber-800">
-                    Add at least one account and finance category before logging
-                    transactions.
+                    Add accounts and finance categories before logging transactions.
                   </p>
                 )}
 
@@ -268,6 +288,7 @@ export function LogModal({ open, onClose }: LogModalProps) {
                       >
                         <option value="outgoing">Outgoing</option>
                         <option value="income">Income</option>
+                        <option value="transfer">Transfer</option>
                       </select>
                       <select
                         value={transaction.accountId}
@@ -281,32 +302,56 @@ export function LogModal({ open, onClose }: LogModalProps) {
                         }
                         className="rounded-md border border-zinc-300 px-2 py-1.5 disabled:bg-zinc-100"
                       >
-                        <option value="">Account</option>
+                        <option value="">
+                          {transaction.direction === "transfer" ? "From account" : "Account"}
+                        </option>
                         {options?.accounts.map((account) => (
                           <option key={account.id} value={account.id}>
                             {account.name}
                           </option>
                         ))}
                       </select>
-                      <select
-                        value={transaction.categoryId}
-                        disabled={!canAddTransactions}
-                        onChange={(event) =>
-                          updateTransaction(
-                            transaction.id,
-                            "categoryId",
-                            event.target.value,
-                          )
-                        }
-                        className="rounded-md border border-zinc-300 px-2 py-1.5 disabled:bg-zinc-100"
-                      >
-                        <option value="">Category</option>
-                        {options?.categories.map((category) => (
-                          <option key={category.id} value={category.id}>
-                            {category.name}
-                          </option>
-                        ))}
-                      </select>
+                      {transaction.direction === "transfer" ? (
+                        <select
+                          value={transaction.transferAccountId}
+                          disabled={!canAddTransactions}
+                          onChange={(event) =>
+                            updateTransaction(
+                              transaction.id,
+                              "transferAccountId",
+                              event.target.value,
+                            )
+                          }
+                          className="rounded-md border border-zinc-300 px-2 py-1.5 disabled:bg-zinc-100"
+                        >
+                          <option value="">To account</option>
+                          {options?.accounts.map((account) => (
+                            <option key={account.id} value={account.id}>
+                              {account.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <select
+                          value={transaction.categoryId}
+                          disabled={!canAddTransactions}
+                          onChange={(event) =>
+                            updateTransaction(
+                              transaction.id,
+                              "categoryId",
+                              event.target.value,
+                            )
+                          }
+                          className="rounded-md border border-zinc-300 px-2 py-1.5 disabled:bg-zinc-100"
+                        >
+                          <option value="">Category</option>
+                          {options?.categories.map((category) => (
+                            <option key={category.id} value={category.id}>
+                              {category.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                       <input
                         value={transaction.amount}
                         disabled={!canAddTransactions}
