@@ -1,6 +1,7 @@
 "use server";
 
 import type { AccountType } from "@/app/generated/prisma/client";
+import { dailyQuotes } from "@/lib/daily-quotes";
 import { prisma } from "@/lib/prisma";
 
 export type DashboardAccount = {
@@ -82,6 +83,10 @@ export type DashboardData = {
 export type SidebarSnapshot = {
   title: string;
   text: string;
+  quote: {
+    text: string;
+    author: string;
+  };
 };
 
 const currencyFormatter = new Intl.NumberFormat("en-GB", {
@@ -113,6 +118,15 @@ function formatCurrency(amount: number) {
 
 function formatDetailedCurrency(amount: number) {
   return detailedCurrencyFormatter.format(amount);
+}
+
+function getDailyQuote(date: Date) {
+  const startOfYear = new Date(date.getFullYear(), 0, 0);
+  const dayOfYear = Math.floor(
+    (getStartOfDay(date).getTime() - startOfYear.getTime()) / 86_400_000,
+  );
+
+  return dailyQuotes[dayOfYear % dailyQuotes.length];
 }
 
 function getStartOfDay(date: Date) {
@@ -287,6 +301,7 @@ export async function getSidebarSnapshot(): Promise<SidebarSnapshot> {
   return {
     title: `${snapshotMonthFormatter.format(today)} snapshot`,
     text: `${budgetText}, with ${habitText}.`,
+    quote: getDailyQuote(today),
   };
 }
 

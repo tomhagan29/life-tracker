@@ -9,6 +9,10 @@ type SidebarClientProps = {
   snapshot: {
     title: string;
     text: string;
+    quote: {
+      text: string;
+      author: string;
+    };
   };
 };
 
@@ -75,6 +79,16 @@ export function SidebarClient({ snapshot }: SidebarClientProps) {
           </p>
           <p className="mt-2 text-sm leading-6 text-zinc-600">
             {snapshot.text}
+          </p>
+        </section>
+
+        <section className="mt-3 hidden rounded-lg border border-zinc-200 bg-[#f7f4ee] p-4 lg:block">
+          <p className="text-sm font-semibold text-zinc-950">Daily quote</p>
+          <blockquote className="mt-2 text-sm leading-6 text-zinc-600">
+            &ldquo;{snapshot.quote.text}&rdquo;
+          </blockquote>
+          <p className="mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
+            {snapshot.quote.author}
           </p>
         </section>
       </aside>
