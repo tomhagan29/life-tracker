@@ -57,10 +57,9 @@ export type DashboardTodayItem = {
 
 export type DashboardActivityRow = {
   id: string;
-  entry: string;
+  name: string;
   category: string;
-  date: string;
-  amount: string;
+  summary: string;
 };
 
 export type DashboardData = {
@@ -524,28 +523,32 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   const recentTransactions = transactions.slice(0, 6).map((transaction) => {
     const isTransfer = transaction.transferAccountId !== null;
+    const amount = formatDetailedCurrency(Math.abs(transaction.amount.toNumber()));
+
+    if (isTransfer) {
+      return {
+        id: `transaction-${transaction.id}`,
+        name:
+          transaction.transferAccount
+            ? `${transaction.account.name} to ${transaction.transferAccount.name}`
+            : transaction.account.name,
+        category: "Transfer",
+        summary: amount,
+      };
+    }
 
     return {
       id: `transaction-${transaction.id}`,
-      entry: isTransfer ? "Transfer" : transaction.category?.name ?? "Uncategorised",
-      category:
-        isTransfer && transaction.transferAccount
-          ? `${transaction.account.name} to ${transaction.transferAccount.name}`
-          : transaction.account.name,
-      date: activityDateFormatter.format(transaction.date),
-      amount: formatDetailedCurrency(
-        isTransfer
-          ? Math.abs(transaction.amount.toNumber())
-          : transaction.amount.toNumber(),
-      ),
+      name: transaction.account.name,
+      category: transaction.category?.name ?? "Uncategorised",
+      summary: formatDetailedCurrency(transaction.amount.toNumber()),
     };
   });
   const recentHabits = habits.slice(0, 3).map((habit) => ({
     id: `habit-${habit.id}`,
-    entry: habit.name,
+    name: habit.name,
     category: habit.category.name,
-    date: "Tracked",
-    amount: `${habit.streak} day streak`,
+    summary: `${habit.streak} day streak`,
   }));
   const recentGoals = goals.slice(0, 3).map((goal) => {
     const currentAmount = goal.currentAmount?.toNumber() ?? null;
@@ -553,15 +556,16 @@ export async function getDashboardData(): Promise<DashboardData> {
 
     return {
       id: `goal-${goal.id}`,
-      entry: goal.name,
+      name: goal.name,
       category: "Goal",
-      date: goal.deadline ? activityDateFormatter.format(goal.deadline) : "No deadline",
-      amount:
+      summary:
         goal.isComplete
           ? "Complete"
           : goal.type === "numerical"
           ? `${getGoalProgress(currentAmount, targetAmount)}%`
-          : "Milestone",
+          : goal.deadline
+            ? `Due ${activityDateFormatter.format(goal.deadline)}`
+            : "Milestone",
     };
   });
 

@@ -8,10 +8,10 @@ export function RecentActivityCard({
 }) {
   const columns: Column<DashboardActivityRow>[] = [
     {
-      key: "entry",
-      header: "Entry",
+      key: "name",
+      header: "Name",
       className: "font-semibold",
-      cell: (row) => row.entry,
+      cell: (row) => row.name,
     },
     {
       key: "category",
@@ -20,16 +20,10 @@ export function RecentActivityCard({
       cell: (row) => row.category,
     },
     {
-      key: "date",
-      header: "Date",
-      className: "text-zinc-500",
-      cell: (row) => row.date,
-    },
-    {
-      key: "amount",
-      header: "Amount",
+      key: "summary",
+      header: "Summary",
       className: "text-right font-semibold",
-      cell: (row) => row.amount,
+      cell: (row) => row.summary,
     },
   ];
 
@@ -39,7 +33,7 @@ export function RecentActivityCard({
         <div>
           <h3 className="text-xl font-semibold">Recent activity</h3>
           <p className="mt-1 text-sm text-zinc-500">
-            Money moves and habit records
+            Money, habits, and goal updates
           </p>
         </div>
       </div>
