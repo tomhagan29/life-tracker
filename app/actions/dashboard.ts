@@ -119,6 +119,22 @@ function getStartOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
+function getStartOfWeek(date: Date) {
+  const start = getStartOfDay(date);
+  const day = start.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  start.setDate(start.getDate() + mondayOffset);
+
+  return start;
+}
+
+function getNextWeek(date: Date) {
+  const nextWeek = new Date(getStartOfWeek(date));
+  nextWeek.setDate(nextWeek.getDate() + 7);
+
+  return nextWeek;
+}
+
 function getStartOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
@@ -137,23 +153,24 @@ function getGoalProgress(currentAmount: number | null, targetAmount: number | nu
 
 function getHabitProgress(habit: {
   isDaily: boolean;
-  streak: number;
   frequency: number | null;
+  completions: { date: Date }[];
 }) {
-  if (habit.isDaily) {
-    return Math.min(Math.round((habit.streak / 7) * 100), 100);
+  const target = habit.isDaily ? 7 : habit.frequency ?? 0;
+
+  if (target <= 0) {
+    return 0;
   }
 
-  return Math.min(Math.round(((habit.frequency ?? 0) / 7) * 100), 100);
+  return Math.min(Math.round((habit.completions.length / target) * 100), 100);
 }
 
-function getWeek(today: Date, habits: { streak: number }[]) {
-  const day = today.getDay();
-  const mondayOffset = day === 0 ? -6 : 1 - day;
+function getWeek(today: Date, completions: { date: Date }[]) {
+  const weekStart = getStartOfWeek(today);
 
   return Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() + mondayOffset + index);
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + index);
     const daysAgo = Math.floor(
       (getStartOfDay(today).getTime() - getStartOfDay(date).getTime()) /
         86_400_000,
@@ -161,7 +178,12 @@ function getWeek(today: Date, habits: { streak: number }[]) {
 
     return {
       label: dayFormatter.format(date),
-      completed: daysAgo >= 0 && habits.some((habit) => habit.streak > daysAgo),
+      completed:
+        daysAgo >= 0 &&
+        completions.some(
+          (completion) =>
+            getStartOfDay(completion.date).getTime() === getStartOfDay(date).getTime(),
+        ),
       isToday: daysAgo === 0,
     };
   });
@@ -200,6 +222,8 @@ function getCurrentMonthDays(today: Date) {
 
 export async function getSidebarSnapshot(): Promise<SidebarSnapshot> {
   const today = new Date();
+  const weekStart = getStartOfWeek(today);
+  const nextWeek = getNextWeek(today);
   const monthStart = getStartOfMonth(today);
   const nextMonth = getNextMonth(today);
 
@@ -221,9 +245,17 @@ export async function getSidebarSnapshot(): Promise<SidebarSnapshot> {
     }),
     prisma.habit.findMany({
       select: {
-        streak: true,
         isDaily: true,
         frequency: true,
+        completions: {
+          where: {
+            date: {
+              gte: weekStart,
+              lt: nextWeek,
+            },
+          },
+          select: { date: true },
+        },
       },
     }),
   ]);
@@ -260,6 +292,8 @@ export async function getSidebarSnapshot(): Promise<SidebarSnapshot> {
 
 export async function getDashboardData(): Promise<DashboardData> {
   const today = new Date();
+  const weekStart = getStartOfWeek(today);
+  const nextWeek = getNextWeek(today);
   const monthStart = getStartOfMonth(today);
   const nextMonth = getNextMonth(today);
   const months = getLastTwelveMonths(today);
@@ -274,7 +308,18 @@ export async function getDashboardData(): Promise<DashboardData> {
     prisma.goal.findMany({ orderBy: { id: "asc" } }),
     prisma.habit.findMany({
       orderBy: [{ streak: "desc" }, { id: "asc" }],
-      include: { category: true },
+      include: {
+        category: true,
+        completions: {
+          where: {
+            date: {
+              gte: weekStart,
+              lt: nextWeek,
+            },
+          },
+          select: { date: true },
+        },
+      },
     }),
     prisma.transaction.findMany({
       where: {
@@ -503,7 +548,10 @@ export async function getDashboardData(): Promise<DashboardData> {
     budgets: budgetRows,
     goals: goalRows,
     habits: habitRows,
-    week: getWeek(today, habits),
+    week: getWeek(
+      today,
+      habits.flatMap((habit) => habit.completions),
+    ),
     moneyFlow,
     todayItems,
     recentActivity: [...recentTransactions, ...recentHabits, ...recentGoals].slice(0, 8),
