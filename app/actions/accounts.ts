@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { AccountType, Prisma } from "@/app/generated/prisma/client";
-import { currencySchema } from "@/lib/constants";
+import { currencySchema, MAX_STRING_FIELD_LENGTH } from "@/lib/constants";
 
 export type AccountActionState = {
   ok: boolean;
@@ -12,7 +12,11 @@ export type AccountActionState = {
 };
 
 const accountSchema = z.object({
-  name: z.string().trim().min(1, "Name is required"),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Name is required")
+    .max(MAX_STRING_FIELD_LENGTH, "Name must be 255 characters or fewer"),
   balance: currencySchema,
   type: z.enum(AccountType),
 });

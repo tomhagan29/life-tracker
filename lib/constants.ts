@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const MAX_STRING_FIELD_LENGTH = 255;
+
 export const currencySchema = z
   .string()
   .trim()

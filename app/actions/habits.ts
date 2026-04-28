@@ -1,6 +1,7 @@
 "use server";
 
 import { Prisma } from "@/app/generated/prisma/client";
+import { MAX_STRING_FIELD_LENGTH } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -12,7 +13,11 @@ export type HabitActionState = {
 
 const habitSchema = z
   .object({
-    name: z.string().trim().min(1, "Name is required"),
+    name: z
+      .string()
+      .trim()
+      .min(1, "Name is required")
+      .max(MAX_STRING_FIELD_LENGTH, "Name must be 255 characters or fewer"),
     categoryId: z.coerce.number().int().positive("Category is required"),
     schedule: z.string().trim().min(1, "Schedule is required"),
   })

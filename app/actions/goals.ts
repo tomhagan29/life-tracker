@@ -1,7 +1,7 @@
 "use server";
 
 import { GoalType, Prisma } from "@/app/generated/prisma/client";
-import { currencySchema } from "@/lib/constants";
+import { currencySchema, MAX_STRING_FIELD_LENGTH } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -28,7 +28,11 @@ const optionalCurrency = z.preprocess(
 
 const goalSchema = z
   .object({
-    name: z.string().trim().min(1, "Name is required"),
+    name: z
+      .string()
+      .trim()
+      .min(1, "Name is required")
+      .max(MAX_STRING_FIELD_LENGTH, "Name must be 255 characters or fewer"),
     type: z.enum(GoalType),
     targetAmount: optionalCurrency,
     currentAmount: optionalCurrency,
@@ -66,8 +70,19 @@ const goalSchema = z
   });
 
 const goalMilestoneSchema = z.object({
-  name: z.string().trim().min(1, "Milestone name is required"),
-  description: z.string().trim().optional(),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Milestone name is required")
+    .max(
+      MAX_STRING_FIELD_LENGTH,
+      "Milestone name must be 255 characters or fewer",
+    ),
+  description: z
+    .string()
+    .trim()
+    .max(MAX_STRING_FIELD_LENGTH, "Description must be 255 characters or fewer")
+    .optional(),
   deadline: optionalDate,
 });
 

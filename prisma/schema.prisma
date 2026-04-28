@@ -24,101 +24,116 @@ enum AccountType {
 }
 
 model FinanceCategory {
-  id Int @id @default(autoincrement()) 
-  name String @unique
-  budgetItems BudgetItem[]
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  budgetItems  BudgetItem[]
   transactions Transaction[]
 }
 
 model HabitCategory {
-  id Int @id @default(autoincrement()) 
-  name String @unique
+  id     Int     @id @default(autoincrement())
+  name   String  @unique
   habits Habit[]
 }
 
 model CheckInComment {
-  id Int @id @default(autoincrement())
-  content String
-  checkIn CheckIn @relation(fields: [checkInId], references: [id])
+  id        Int     @id @default(autoincrement())
+  content   String
+  checkIn   CheckIn @relation(fields: [checkInId], references: [id], onDelete: Cascade)
   checkInId Int
+
+  @@index([checkInId])
 }
 
 model Account {
-  id Int @id @default(autoincrement())
-  name String @unique
-  balance Decimal
-  type AccountType
-  transactions Transaction[] @relation("AccountTransactions")
+  id                Int           @id @default(autoincrement())
+  name              String        @unique
+  balance           Decimal
+  type              AccountType
+  transactions      Transaction[] @relation("AccountTransactions")
   incomingTransfers Transaction[] @relation("TransferDestination")
-  budgetItems BudgetItem[]
+  budgetItems       BudgetItem[]
 }
 
 model Transaction {
-  id Int @id @default(autoincrement())
-  date DateTime @default(now())
-  amount Decimal
-  category FinanceCategory? @relation(fields: [categoryId], references: [id])
-  categoryId Int?
-  account Account @relation("AccountTransactions", fields: [accountId], references: [id])
-  accountId Int
-  transferAccount Account? @relation("TransferDestination", fields: [transferAccountId], references: [id])
+  id                Int              @id @default(autoincrement())
+  date              DateTime         @default(now())
+  amount            Decimal
+  category          FinanceCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  categoryId        Int?
+  account           Account          @relation("AccountTransactions", fields: [accountId], references: [id], onDelete: Cascade)
+  accountId         Int
+  transferAccount   Account?         @relation("TransferDestination", fields: [transferAccountId], references: [id], onDelete: SetNull)
   transferAccountId Int?
+
+  @@index([accountId])
+  @@index([categoryId])
+  @@index([date])
+  @@index([transferAccountId])
 }
 
 model Habit {
-  id Int @id @default(autoincrement())
-  name String
-  category HabitCategory @relation(fields: [categoryId], references: [id])
-  categoryId Int
-  streak Int @default(0)
-  isDaily Boolean
-  frequency Int?
+  id          Int               @id @default(autoincrement())
+  name        String
+  category    HabitCategory     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId  Int
+  streak      Int               @default(0)
+  isDaily     Boolean
+  frequency   Int?
   completions HabitCompletion[]
+
+  @@index([categoryId])
 }
 
 model HabitCompletion {
-  id Int @id @default(autoincrement())
-  date DateTime @default(now())
-  habit Habit @relation(fields: [habitId], references: [id])
+  id      Int      @id @default(autoincrement())
+  date    DateTime @default(now())
+  habit   Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
   habitId Int
 
   @@unique([habitId, date])
+  @@index([habitId])
 }
 
 model BudgetItem {
-  id Int @id @default(autoincrement())
-  name String
-  amount Decimal
-  dueDay Int?
-  category FinanceCategory @relation(fields: [categoryId], references: [id])
+  id         Int             @id @default(autoincrement())
+  name       String
+  amount     Decimal
+  dueDay     Int?
+  category   FinanceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   categoryId Int
-  account Account @relation(fields: [accountId], references: [id])
-  accountId Int
+  account    Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId  Int
+
+  @@index([accountId])
+  @@index([categoryId])
 }
 
 model GoalMilestone {
-  id Int @id @default(autoincrement())
-  name String
-  description String @default("")
-  deadline DateTime?
-  isComplete Boolean @default(false)
-  goal Goal @relation(fields: [goalId], references: [id])
-  goalId Int
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String    @default("")
+  deadline    DateTime?
+  isComplete  Boolean   @default(false)
+  goal        Goal      @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  goalId      Int
+
+  @@index([goalId])
 }
 
 model Goal {
-  id Int @id @default(autoincrement())
-  name String
-  type GoalType
-  targetAmount Decimal?
+  id            Int             @id @default(autoincrement())
+  name          String
+  type          GoalType
+  targetAmount  Decimal?
   currentAmount Decimal?
-  isComplete Boolean @default(false)
-  milestones GoalMilestone[]
-  deadline DateTime?
+  isComplete    Boolean         @default(false)
+  milestones    GoalMilestone[]
+  deadline      DateTime?
 }
 
 model CheckIn {
-  id Int @id @default(autoincrement())
-  date DateTime @default(now())
+  id       Int              @id @default(autoincrement())
+  date     DateTime         @default(now())
   comments CheckInComment[]
 }

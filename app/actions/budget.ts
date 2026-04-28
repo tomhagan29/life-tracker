@@ -1,6 +1,6 @@
 "use server";
 
-import { currencySchema } from "@/lib/constants";
+import { currencySchema, MAX_STRING_FIELD_LENGTH } from "@/lib/constants";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
@@ -17,7 +17,11 @@ const optionalSelectNumber = z.preprocess(
 );
 
 const budgetItemSchema = z.object({
-  name: z.string().trim().min(1, "Name is required"),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Name is required")
+    .max(MAX_STRING_FIELD_LENGTH, "Name must be 255 characters or fewer"),
   amount: currencySchema,
   dueDay: optionalSelectNumber.refine(
     (day) => day === undefined || (day >= 1 && day <= 31),

@@ -5,6 +5,7 @@ import {
   GoalType,
   Prisma,
 } from "@/app/generated/prisma/client";
+import { MAX_STRING_FIELD_LENGTH } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -17,6 +18,10 @@ export type UserDataActionState = {
 const decimalStringSchema = z.union([z.string().min(1), z.number()]).transform(String);
 const nullableDateSchema = z.string().datetime().nullable();
 const nullablePositiveIdSchema = z.number().int().positive().nullable().optional();
+const boundedStringSchema = z
+  .string()
+  .max(MAX_STRING_FIELD_LENGTH, "Must be 255 characters or fewer");
+const boundedRequiredStringSchema = boundedStringSchema.min(1);
 
 const importDataSchema = z.object({
   version: z.literal(1),
@@ -25,19 +30,19 @@ const importDataSchema = z.object({
     financeCategories: z.array(
       z.object({
         id: z.number().int().positive(),
-        name: z.string().min(1),
+        name: boundedRequiredStringSchema,
       }),
     ),
     habitCategories: z.array(
       z.object({
         id: z.number().int().positive(),
-        name: z.string().min(1),
+        name: boundedRequiredStringSchema,
       }),
     ),
     accounts: z.array(
       z.object({
         id: z.number().int().positive(),
-        name: z.string().min(1),
+        name: boundedRequiredStringSchema,
         balance: decimalStringSchema,
         type: z.enum(AccountType),
       }),
@@ -55,7 +60,7 @@ const importDataSchema = z.object({
     habits: z.array(
       z.object({
         id: z.number().int().positive(),
-        name: z.string().min(1),
+        name: boundedRequiredStringSchema,
         categoryId: z.number().int().positive(),
         streak: z.number().int().min(0),
         isDaily: z.boolean(),
@@ -75,7 +80,7 @@ const importDataSchema = z.object({
     budgetItems: z.array(
       z.object({
         id: z.number().int().positive(),
-        name: z.string().min(1),
+        name: boundedRequiredStringSchema,
         amount: decimalStringSchema,
         dueDay: z.number().int().min(1).max(31).nullable(),
         categoryId: z.number().int().positive(),
@@ -85,7 +90,7 @@ const importDataSchema = z.object({
     goals: z.array(
       z.object({
         id: z.number().int().positive(),
-        name: z.string().min(1),
+        name: boundedRequiredStringSchema,
         type: z.enum(GoalType),
         targetAmount: decimalStringSchema.nullable(),
         currentAmount: decimalStringSchema.nullable(),
@@ -96,8 +101,8 @@ const importDataSchema = z.object({
     goalMilestones: z.array(
       z.object({
         id: z.number().int().positive(),
-        name: z.string().min(1),
-        description: z.string().optional().default(""),
+        name: boundedRequiredStringSchema,
+        description: boundedStringSchema.optional().default(""),
         deadline: nullableDateSchema,
         isComplete: z.boolean().optional().default(false),
         goalId: z.number().int().positive(),
@@ -112,7 +117,7 @@ const importDataSchema = z.object({
     checkInComments: z.array(
       z.object({
         id: z.number().int().positive(),
-        content: z.string(),
+        content: boundedStringSchema,
         checkInId: z.number().int().positive(),
       }),
     ),
