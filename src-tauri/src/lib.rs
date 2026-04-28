@@ -101,6 +101,7 @@ fn start_next_server(app: &tauri::AppHandle) -> Result<String> {
 
   if let Err(error) = wait_for_server(port) {
     let _ = child.kill();
+    let _ = child.wait();
     return Err(error);
   }
 
@@ -115,6 +116,7 @@ fn stop_next_server(app: &tauri::AppHandle) {
 
   if let Some(mut child) = state.0.lock().expect("Next server state lock poisoned").take() {
     let _ = child.kill();
+    let _ = child.wait();
   };
 }
 
