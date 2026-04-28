@@ -109,6 +109,14 @@ fn start_next_server(app: &tauri::AppHandle) -> Result<String> {
   fs::create_dir_all(&app_data_dir).context("Could not create app data directory")?;
 
   let database_path = app_data_dir.join("life-tracker.sqlite");
+
+  let log_file = fs::OpenOptions::new()
+    .create(true)
+    .append(true)
+    .open(app_data_dir.join("server.log"))
+    .context("Could not open server log file")?;
+  let log_stderr = log_file.try_clone().context("Could not duplicate server log file handle")?;
+
   let mut child = Command::new(node_path)
     .arg(server_path)
     .current_dir(standalone_dir)
@@ -117,8 +125,8 @@ fn start_next_server(app: &tauri::AppHandle) -> Result<String> {
     .env("PORT", port.to_string())
     .env("NODE_ENV", "production")
     .stdin(Stdio::null())
-    .stdout(Stdio::null())
-    .stderr(Stdio::null())
+    .stdout(Stdio::from(log_file))
+    .stderr(Stdio::from(log_stderr))
     .spawn()
     .context("Could not start bundled Next server")?;
 
