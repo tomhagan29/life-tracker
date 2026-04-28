@@ -56,7 +56,7 @@ export const dailyQuotes = [
     author: "Super Hans",
   },
   {
-    text: "Mark, if I can just get rid of the dog corpse, there’s a chance I still might get laid here.",
+    text: "Mark, if I can just get rid of the dog corpse, there's a chance I still might get laid here.",
     author: "Jez",
   },
   {
@@ -81,6 +81,10 @@ export const dailyQuotes = [
   },
   {
     text: "Just open your gob and someone will slip in something tasty. A pill, a nipple, bit of fried halloumi. Lovely.",
+    author: "Super Hans",
+  },
+  {
+    text: "Big beats are the best, get high all the time.",
     author: "Super Hans",
   },
   {
@@ -140,7 +144,7 @@ export const dailyQuotes = [
     author: "Pablo Picasso",
   },
   {
-    text: "You don’t have to be extreme, just consistent.",
+    text: "You don't have to be extreme, just consistent.",
     author: "Unknown",
   },
   {
@@ -216,7 +220,7 @@ export const dailyQuotes = [
     author: "Oscar Wilde",
   },
   {
-    text: "If at first you don’t succeed, then skydiving definitely isn’t for you.",
+    text: "If at first you don't succeed, then skydiving definitely isn't for you.",
     author: "Steven Wright",
   },
   {
@@ -224,7 +228,7 @@ export const dailyQuotes = [
     author: "Terry Pratchett",
   },
   {
-    text: "I refuse to answer that question on the grounds that I don’t know the answer.",
+    text: "I refuse to answer that question on the grounds that I don't know the answer.",
     author: "Douglas Adams",
   },
   {
@@ -252,7 +256,7 @@ export const dailyQuotes = [
     author: "Ron Swanson",
   },
   {
-    text: "That’ll do pig. That’ll do.",
+    text: "That'll do pig. That'll do.",
     author: "Farmer Hoggett",
   },
   {

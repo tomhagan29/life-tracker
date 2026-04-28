@@ -13,6 +13,13 @@ type SidebarClientProps = {
       amount: string;
       dueLabel: string;
     }[];
+    accountWarnings: {
+      accountId: number;
+      accountName: string;
+      balance: string;
+      totalDue: string;
+      shortfall: string;
+    }[];
     quote: {
       text: string;
       author: string;
@@ -103,6 +110,44 @@ export function SidebarClient({ snapshot }: SidebarClientProps) {
             </div>
           )}
         </section>
+
+        {snapshot.accountWarnings.length > 0 && (
+          <section className="mt-3 hidden rounded-lg border border-amber-200 bg-[#fffbeb] p-4 lg:block">
+            <div className="flex items-center gap-2">
+              <svg
+                className="size-4 shrink-0 text-amber-500"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+                />
+              </svg>
+              <p className="text-sm font-semibold text-zinc-950">Funding alerts</p>
+            </div>
+            <div className="mt-3 space-y-3">
+              {snapshot.accountWarnings.map((warning) => (
+                <div key={warning.accountId}>
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="truncate text-sm font-semibold text-zinc-950">
+                      {warning.accountName}
+                    </p>
+                    <p className="shrink-0 text-sm font-semibold text-red-600">
+                      −{warning.shortfall}
+                    </p>
+                  </div>
+                  <p className="mt-0.5 text-xs text-zinc-500">
+                    {warning.balance} available · {warning.totalDue} due
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="mt-3 hidden rounded-lg border border-zinc-200 bg-[#f7f4ee] p-4 lg:block">
           <p className="text-sm font-semibold text-zinc-950">Daily quote</p>

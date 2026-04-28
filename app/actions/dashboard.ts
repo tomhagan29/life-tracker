@@ -87,8 +87,17 @@ export type SidebarUpcomingBill = {
   dueLabel: string;
 };
 
+export type SidebarAccountWarning = {
+  accountId: number;
+  accountName: string;
+  balance: string;
+  totalDue: string;
+  shortfall: string;
+};
+
 export type SidebarSnapshot = {
   upcomingBills: SidebarUpcomingBill[];
+  accountWarnings: SidebarAccountWarning[];
   quote: {
     text: string;
     author: string;
@@ -323,6 +332,8 @@ function getCurrentWeekDays(today: Date) {
   });
 }
 
+const ACCOUNT_WARNING_DAYS = 30;
+
 export async function getSidebarSnapshot(): Promise<SidebarSnapshot> {
   const today = new Date();
   const budgetItems = await prisma.budgetItem.findMany({
@@ -333,6 +344,7 @@ export async function getSidebarSnapshot(): Promise<SidebarSnapshot> {
       name: true,
       amount: true,
       dueDay: true,
+      account: { select: { id: true, name: true, balance: true } },
     },
   });
 
@@ -363,8 +375,41 @@ export async function getSidebarSnapshot(): Promise<SidebarSnapshot> {
       dueLabel: bill.dueLabel,
     }));
 
+  const warningCutoff = new Date(
+    getStartOfDay(today).getTime() + ACCOUNT_WARNING_DAYS * 86_400_000,
+  );
+  const accountTotals = new Map<
+    number,
+    { name: string; balance: number; total: number }
+  >();
+  for (const item of budgetItems) {
+    if (item.dueDay === null) continue;
+    const dueDate = getBudgetDueDate(today, item.dueDay);
+    if (dueDate > warningCutoff) continue;
+    const existing = accountTotals.get(item.account.id);
+    if (existing) {
+      existing.total += item.amount.toNumber();
+    } else {
+      accountTotals.set(item.account.id, {
+        name: item.account.name,
+        balance: item.account.balance.toNumber(),
+        total: item.amount.toNumber(),
+      });
+    }
+  }
+  const accountWarnings = Array.from(accountTotals.entries())
+    .filter(([, data]) => data.balance < data.total)
+    .map(([id, data]) => ({
+      accountId: id,
+      accountName: data.name,
+      balance: formatDetailedCurrency(data.balance),
+      totalDue: formatDetailedCurrency(data.total),
+      shortfall: formatDetailedCurrency(data.total - data.balance),
+    }));
+
   return {
     upcomingBills,
+    accountWarnings,
     quote: getDailyQuote(today),
   };
 }
