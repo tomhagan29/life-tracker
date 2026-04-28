@@ -333,6 +333,7 @@ function getCurrentWeekDays(today: Date) {
 }
 
 const ACCOUNT_WARNING_DAYS = 30;
+const DASHBOARD_ITEM_LIMIT = 4;
 
 export async function getSidebarSnapshot(): Promise<SidebarSnapshot> {
   const today = new Date();
@@ -365,7 +366,7 @@ export async function getSidebarSnapshot(): Promise<SidebarSnapshot> {
       };
     })
     .sort((a, b) => a.dueTime - b.dueTime)
-    .slice(0, 4)
+    .slice(0, DASHBOARD_ITEM_LIMIT)
     .map((bill) => ({
       id: bill.id,
       name: bill.name,
@@ -505,7 +506,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   }));
   const budgetLeft = totalBudget - monthlyOutgoing;
 
-  const goalRows = goals.slice(0, 4).map((goal) => {
+  const goalRows = goals.slice(0, DASHBOARD_ITEM_LIMIT).map((goal) => {
     const currentAmount = goal.currentAmount?.toNumber() ?? null;
     const targetAmount = goal.targetAmount?.toNumber() ?? null;
     const progress = goal.isComplete
@@ -528,7 +529,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     };
   });
 
-  const habitRows = habits.slice(0, 4).map((habit) => ({
+  const habitRows = habits.slice(0, DASHBOARD_ITEM_LIMIT).map((habit) => ({
     id: habit.id,
     name: habit.name,
     streak: `${habit.streak} ${habit.streak === 1 ? "day" : "days"}`,
@@ -634,13 +635,16 @@ export async function getDashboardData(): Promise<DashboardData> {
       status: "Due today",
       meta: formatDetailedCurrency(item.amount.toNumber()),
     }));
-  const habitItems = habits.slice(0, 4).map((habit) => ({
+  const habitItems = habits.slice(0, DASHBOARD_ITEM_LIMIT).map((habit) => ({
     id: `habit-${habit.id}`,
     task: habit.name,
     status: getHabitScheduleLabel(habit.isDaily, habit.frequency),
     meta: `${habit.streak} day streak`,
   }));
-  const todayItems = [...goalItems, ...budgetItemsDueToday, ...habitItems].slice(0, 4);
+  const todayItems = [...goalItems, ...budgetItemsDueToday, ...habitItems].slice(
+    0,
+    DASHBOARD_ITEM_LIMIT,
+  );
 
   const recentTransactions = transactions.slice(0, 6).map((transaction) => {
     const isTransfer = transaction.transferAccountId !== null;
