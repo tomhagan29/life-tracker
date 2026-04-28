@@ -551,7 +551,7 @@ export function GoalsTable({ goals }: { goals: GoalRow[] }) {
                     <td className="px-5 py-4 text-right">
                       <div className="flex justify-end gap-2">
                         {isEditing ? (
-                          <>
+                          <Fragment key="editing-goal-actions">
                             <form
                               id={editFormId}
                               onSubmit={(event) => {
@@ -580,9 +580,9 @@ export function GoalsTable({ goals }: { goals: GoalRow[] }) {
                             >
                               Cancel
                             </button>
-                          </>
+                          </Fragment>
                         ) : (
-                          <>
+                          <Fragment key="view-goal-actions">
                             <button
                               type="button"
                               disabled={pendingAction === `toggle-goal-${row.id}`}
@@ -603,7 +603,10 @@ export function GoalsTable({ goals }: { goals: GoalRow[] }) {
                             <button
                               type="button"
                               className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-sm font-semibold hover:bg-zinc-50"
-                              onClick={() => setEditingGoalId(row.id)}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                setEditingGoalId(row.id);
+                              }}
                             >
                               Edit
                             </button>
@@ -623,7 +626,7 @@ export function GoalsTable({ goals }: { goals: GoalRow[] }) {
                                   : "Delete"}
                               </button>
                             </form>
-                          </>
+                          </Fragment>
                         )}
                       </div>
                     </td>
