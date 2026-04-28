@@ -1,6 +1,7 @@
 use std::{
   fs,
   net::{TcpListener, TcpStream},
+  path::{Path, PathBuf},
   process::{Child, Command, Stdio},
   sync::Mutex,
   thread,
@@ -21,6 +22,7 @@ struct NextServer(Mutex<Option<Child>>);
 pub fn run() {
   tauri::Builder::default()
     .manage(NextServer(Mutex::new(None)))
+    .invoke_handler(tauri::generate_handler![save_user_export])
     .setup(|app| {
       let main_window =
         WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
@@ -41,6 +43,27 @@ pub fn run() {
     })
     .run(tauri::generate_context!())
     .expect("error while running Life Tracker");
+}
+
+#[tauri::command]
+fn save_user_export(
+  app: tauri::AppHandle,
+  filename: String,
+  contents: String,
+) -> std::result::Result<String, String> {
+  let safe_filename = safe_export_filename(&filename);
+  let downloads_dir = app
+    .path()
+    .download_dir()
+    .map_err(|error| format!("Could not find Downloads folder: {error}"))?;
+  fs::create_dir_all(&downloads_dir)
+    .map_err(|error| format!("Could not create Downloads folder: {error}"))?;
+
+  let output_path = available_export_path(downloads_dir.join(safe_filename));
+  fs::write(&output_path, contents)
+    .map_err(|error| format!("Could not save export file: {error}"))?;
+
+  Ok(output_path.to_string_lossy().into_owned())
 }
 
 fn load_app_when_ready(app: tauri::AppHandle, main_window: WebviewWindow) {
@@ -118,6 +141,42 @@ fn stop_next_server(app: &tauri::AppHandle) {
     let _ = child.kill();
     let _ = child.wait();
   };
+}
+
+fn safe_export_filename(filename: &str) -> String {
+  Path::new(filename)
+    .file_name()
+    .and_then(|name| name.to_str())
+    .filter(|name| name.ends_with(".json"))
+    .unwrap_or("life-tracker-export.json")
+    .to_string()
+}
+
+fn available_export_path(path: PathBuf) -> PathBuf {
+  if !path.exists() {
+    return path;
+  }
+
+  let parent = path.parent().map(Path::to_path_buf).unwrap_or_default();
+  let stem = path
+    .file_stem()
+    .and_then(|stem| stem.to_str())
+    .unwrap_or("life-tracker-export");
+  let extension = path.extension().and_then(|extension| extension.to_str());
+
+  for index in 1.. {
+    let filename = match extension {
+      Some(extension) => format!("{stem}-{index}.{extension}"),
+      None => format!("{stem}-{index}"),
+    };
+    let candidate = parent.join(filename);
+
+    if !candidate.exists() {
+      return candidate;
+    }
+  }
+
+  unreachable!("export path search should always return an available filename")
 }
 
 fn find_open_port() -> Result<u16> {

@@ -6,8 +6,57 @@ import {
   resetUserData,
   type UserDataActionState,
 } from "@/app/actions/user-data";
+import {
+  importDataSchema,
+  MAX_IMPORT_FILE_SIZE_BYTES,
+} from "@/lib/user-data-import-schema";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+
+const jsonMimeTypes = new Set(["application/json", "text/json"]);
+
+type TauriInvoke = <T>(
+  command: string,
+  args?: Record<string, unknown>,
+) => Promise<T>;
+
+type TauriWindow = Window & {
+  __TAURI__?: {
+    core?: {
+      invoke?: TauriInvoke;
+    };
+  };
+  __TAURI_INTERNALS__?: {
+    invoke?: TauriInvoke;
+  };
+};
+
+function getTauriInvoke(): TauriInvoke | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const tauriWindow = window as TauriWindow;
+  return (
+    tauriWindow.__TAURI__?.core?.invoke ??
+    tauriWindow.__TAURI_INTERNALS__?.invoke ??
+    null
+  );
+}
+
+function downloadExport(filename: string, contents: string) {
+  const blob = new Blob([contents], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
 
 export function DataManagementCard() {
   const router = useRouter();
@@ -23,17 +72,20 @@ export function DataManagementCard() {
 
     try {
       const data = await exportUserData();
-      const blob = new Blob([JSON.stringify(data, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `life-tracker-export-${new Date().toISOString().slice(0, 10)}.json`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      const contents = JSON.stringify(data, null, 2);
+      const filename = `life-tracker-export-${new Date().toISOString().slice(0, 10)}.json`;
+      const tauriInvoke = getTauriInvoke();
+
+      if (tauriInvoke) {
+        const savedPath = await tauriInvoke<string>("save_user_export", {
+          filename,
+          contents,
+        });
+        setActionState({ ok: true, message: `Export saved to ${savedPath}.` });
+        return;
+      }
+
+      downloadExport(filename, contents);
       setActionState({ ok: true, message: "Export created." });
     } catch {
       setActionState({ ok: false, message: "Could not export data." });
@@ -43,6 +95,70 @@ export function DataManagementCard() {
   }
 
   async function handleImport(file: File) {
+    if (file.size > MAX_IMPORT_FILE_SIZE_BYTES) {
+      setActionState({
+        ok: false,
+        message: "Choose a JSON export file that is 10 MB or smaller.",
+      });
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      return;
+    }
+
+    const hasJsonType = jsonMimeTypes.has(file.type);
+    const hasJsonExtension = file.name.toLowerCase().endsWith(".json");
+
+    if (!hasJsonType && !(file.type === "" && hasJsonExtension)) {
+      setActionState({
+        ok: false,
+        message: "Choose a JSON export file.",
+      });
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      return;
+    }
+
+    let rawImport: string;
+    let parsedJson: unknown;
+
+    try {
+      rawImport = await file.text();
+      parsedJson = JSON.parse(rawImport);
+    } catch {
+      setActionState({
+        ok: false,
+        message: "The selected file is not valid JSON.",
+      });
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      return;
+    }
+
+    const parsed = importDataSchema.safeParse(parsedJson);
+
+    if (!parsed.success) {
+      setActionState({
+        ok: false,
+        message:
+          parsed.error.issues[0]?.message ?? "The import file is invalid.",
+      });
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      return;
+    }
+
     const confirmed = window.confirm(
       "Importing will delete all existing data and replace it with the selected file. Continue?",
     );
@@ -59,7 +175,7 @@ export function DataManagementCard() {
 
     try {
       const formData = new FormData();
-      formData.set("data", await file.text());
+      formData.set("data", rawImport);
       const result = await importUserData(formData);
       setActionState(result);
 
