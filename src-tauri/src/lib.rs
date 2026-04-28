@@ -140,7 +140,7 @@ fn start_next_server(app: &tauri::AppHandle) -> Result<String> {
   }
 
   let state = app.state::<NextServer>();
-  *state.0.lock().expect("Next server state lock poisoned") = Some(child);
+  *state.0.lock().unwrap_or_else(|p| p.into_inner()) = Some(child);
 
   Ok(format!("http://{HOST}:{port}"))
 }
@@ -148,7 +148,7 @@ fn start_next_server(app: &tauri::AppHandle) -> Result<String> {
 fn stop_next_server(app: &tauri::AppHandle) {
   let state = app.state::<NextServer>();
 
-  if let Some(mut child) = state.0.lock().expect("Next server state lock poisoned").take() {
+  if let Some(mut child) = state.0.lock().unwrap_or_else(|p| p.into_inner()).take() {
     let _ = child.kill();
     let _ = child.wait();
   };
