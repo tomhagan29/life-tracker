@@ -133,12 +133,12 @@ function formatDetailedCurrency(amount: number) {
 }
 
 function getDailyQuote(date: Date) {
-  const startOfYear = new Date(date.getFullYear(), 0, 0);
-  const dayOfYear = Math.floor(
+  const startOfYear = new Date(date.getFullYear(), 0, 1);
+  const dayIndex = Math.floor(
     (getStartOfDay(date).getTime() - startOfYear.getTime()) / 86_400_000,
   );
 
-  return dailyQuotes[dayOfYear % dailyQuotes.length];
+  return dailyQuotes[dayIndex % dailyQuotes.length];
 }
 
 function getStartOfDay(date: Date) {
