@@ -8,11 +8,12 @@ use std::{
 };
 
 use anyhow::{bail, Context, Result};
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri::{Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 
 const HOST: &str = "127.0.0.1";
 const FIRST_PORT: u16 = 32473;
 const LAST_PORT: u16 = 32573;
+const SERVER_STARTUP_TIMEOUT: Duration = Duration::from_secs(30);
 
 struct NextServer(Mutex<Option<Child>>);
 
@@ -21,17 +22,15 @@ pub fn run() {
   tauri::Builder::default()
     .manage(NextServer(Mutex::new(None)))
     .setup(|app| {
-      let url = if cfg!(debug_assertions) {
-        "http://127.0.0.1:3000".to_string()
-      } else {
-        start_next_server(app)?
-      };
+      let main_window =
+        WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+          .title("Life Tracker")
+          .inner_size(1280.0, 860.0)
+          .min_inner_size(960.0, 640.0)
+          .build()?;
 
-      WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url.parse()?))
-        .title("Life Tracker")
-        .inner_size(1280.0, 860.0)
-        .min_inner_size(960.0, 640.0)
-        .build()?;
+      let app_handle = app.handle().clone();
+      thread::spawn(move || load_app_when_ready(app_handle, main_window));
 
       Ok(())
     })
@@ -44,7 +43,31 @@ pub fn run() {
     .expect("error while running Life Tracker");
 }
 
-fn start_next_server(app: &mut tauri::App) -> Result<String> {
+fn load_app_when_ready(app: tauri::AppHandle, main_window: WebviewWindow) {
+  match app_url(&app) {
+    Ok(url) => {
+      if let Err(error) = main_window.navigate(url) {
+        eprintln!("Could not load Life Tracker: {error:#}");
+      }
+    }
+    Err(error) => {
+      eprintln!("Could not start Life Tracker: {error:#}");
+      show_startup_error(&main_window);
+    }
+  }
+}
+
+fn app_url(app: &tauri::AppHandle) -> Result<url::Url> {
+  let url = if cfg!(debug_assertions) {
+    "http://127.0.0.1:3000".to_string()
+  } else {
+    start_next_server(app)?
+  };
+
+  Ok(url.parse()?)
+}
+
+fn start_next_server(app: &tauri::AppHandle) -> Result<String> {
   let port = find_open_port()?;
   let resource_dir = app.path().resource_dir().context("Could not resolve Tauri resource directory")?;
   let standalone_dir = resource_dir.join(".next").join("standalone");
@@ -108,7 +131,7 @@ fn find_open_port() -> Result<u16> {
 fn wait_for_server(port: u16) -> Result<()> {
   let started_at = Instant::now();
 
-  while started_at.elapsed() < Duration::from_secs(90) {
+  while started_at.elapsed() < SERVER_STARTUP_TIMEOUT {
     if TcpStream::connect((HOST, port)).is_ok() {
       return Ok(());
     }
@@ -117,6 +140,28 @@ fn wait_for_server(port: u16) -> Result<()> {
   }
 
   bail!("Timed out waiting for bundled Next server")
+}
+
+fn show_startup_error(window: &WebviewWindow) {
+  let _ = window.set_title("Life Tracker failed to start");
+  let _ = window.eval(
+    r#"
+      document.body.innerHTML = "";
+      const main = document.createElement("main");
+      main.style.maxWidth = "34rem";
+      main.style.padding = "2rem";
+      main.style.lineHeight = "1.5";
+      const heading = document.createElement("h1");
+      heading.textContent = "Life Tracker could not start";
+      heading.style.fontSize = "1.25rem";
+      heading.style.margin = "0 0 0.75rem";
+      const details = document.createElement("p");
+      details.textContent = "The bundled app server did not become ready in time. Close and reopen the app to try again.";
+      details.style.margin = "0";
+      main.append(heading, details);
+      document.body.append(main);
+    "#,
+  );
 }
 
 fn node_file_name() -> &'static str {
