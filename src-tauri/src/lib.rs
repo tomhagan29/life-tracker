@@ -12,8 +12,6 @@ use anyhow::{bail, Context, Result};
 use tauri::{Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 
 const HOST: &str = "127.0.0.1";
-const FIRST_PORT: u16 = 32473;
-const LAST_PORT: u16 = 32573;
 const SERVER_STARTUP_TIMEOUT: Duration = Duration::from_secs(30);
 
 struct NextServer(Mutex<Option<Child>>);
@@ -188,13 +186,8 @@ fn available_export_path(path: PathBuf) -> PathBuf {
 }
 
 fn find_open_port() -> Result<u16> {
-  for port in FIRST_PORT..LAST_PORT {
-    if TcpListener::bind((HOST, port)).is_ok() {
-      return Ok(port);
-    }
-  }
-
-  bail!("Could not find an open localhost port for the app server")
+  let listener = TcpListener::bind((HOST, 0)).context("Could not bind to a localhost port")?;
+  Ok(listener.local_addr().context("Could not read bound port")?.port())
 }
 
 fn wait_for_server(port: u16) -> Result<()> {
