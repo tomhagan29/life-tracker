@@ -66,6 +66,12 @@ export function DataManagementCard() {
   });
   const [pendingAction, setPendingAction] = useState<string | null>(null);
 
+  function clearFileInput() {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
   async function handleExport() {
     setPendingAction("export");
     setActionState({ ok: true });
@@ -91,6 +97,7 @@ export function DataManagementCard() {
       setActionState({ ok: false, message: "Could not export data." });
     } finally {
       setPendingAction(null);
+      clearFileInput();
     }
   }
 
@@ -101,9 +108,7 @@ export function DataManagementCard() {
         message: "Choose a JSON export file that is 10 MB or smaller.",
       });
 
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      clearFileInput();
 
       return;
     }
@@ -117,9 +122,7 @@ export function DataManagementCard() {
         message: "Choose a JSON export file.",
       });
 
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      clearFileInput();
 
       return;
     }
@@ -136,9 +139,7 @@ export function DataManagementCard() {
         message: "The selected file is not valid JSON.",
       });
 
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      clearFileInput();
 
       return;
     }
@@ -152,9 +153,7 @@ export function DataManagementCard() {
           parsed.error.issues[0]?.message ?? "The import file is invalid.",
       });
 
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      clearFileInput();
 
       return;
     }
@@ -164,9 +163,7 @@ export function DataManagementCard() {
     );
 
     if (!confirmed) {
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      clearFileInput();
       return;
     }
 
@@ -186,10 +183,7 @@ export function DataManagementCard() {
       setActionState({ ok: false, message: "Could not import data." });
     } finally {
       setPendingAction(null);
-
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      clearFileInput();
     }
   }
 
