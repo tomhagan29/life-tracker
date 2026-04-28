@@ -79,7 +79,12 @@ fn load_app_when_ready(app: tauri::AppHandle, main_window: WebviewWindow) {
 }
 
 fn app_url(app: &tauri::AppHandle) -> Result<url::Url> {
-  let url = if cfg!(debug_assertions) {
+  // LIFE_TRACKER_BUNDLED_SERVER lets a debug build exercise the production
+  // server startup path (used by `npm run desktop:preview`).
+  let use_dev_server = cfg!(debug_assertions)
+    && std::env::var("LIFE_TRACKER_BUNDLED_SERVER").is_err();
+
+  let url = if use_dev_server {
     "http://127.0.0.1:3000".to_string()
   } else {
     start_next_server(app)?
