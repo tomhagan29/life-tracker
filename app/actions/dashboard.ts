@@ -1,6 +1,6 @@
 "use server";
 
-import type { AccountType } from "@/app/generated/prisma/client";
+import { Prisma, type AccountType } from "@/app/generated/prisma/client";
 import { dailyQuotes } from "@/lib/daily-quotes";
 import { prisma } from "@/lib/prisma";
 
@@ -464,9 +464,10 @@ export async function getDashboardData(): Promise<DashboardData> {
   }));
 
   const netWorth = accounts.reduce((sum, account) => {
-    const balance = account.balance.toNumber();
-    return sum + (account.type === "credit" ? -Math.abs(balance) : balance);
-  }, 0);
+    const balance =
+      account.type === "credit" ? account.balance.abs().negated() : account.balance;
+    return sum.plus(balance);
+  }, new Prisma.Decimal(0));
 
   const monthTransactions = transactions.filter(
     (transaction) => transaction.date >= monthStart && transaction.date < nextMonth,
@@ -476,18 +477,16 @@ export async function getDashboardData(): Promise<DashboardData> {
       return sum;
     }
 
-    const amount = transaction.amount.toNumber();
-    return amount > 0 ? sum + amount : sum;
-  }, 0);
+    return transaction.amount.gt(0) ? sum.plus(transaction.amount) : sum;
+  }, new Prisma.Decimal(0));
   const monthlyOutgoing = monthTransactions.reduce((sum, transaction) => {
     if (transaction.transferAccountId !== null) {
       return sum;
     }
 
-    const amount = transaction.amount.toNumber();
-    return amount < 0 ? sum + Math.abs(amount) : sum;
-  }, 0);
-  const cashFlow = monthlyIncome - monthlyOutgoing;
+    return transaction.amount.lt(0) ? sum.plus(transaction.amount.abs()) : sum;
+  }, new Prisma.Decimal(0));
+  const cashFlow = monthlyIncome.minus(monthlyOutgoing);
 
   const categoryBudgets = Array.from(
     budgetItems
@@ -504,7 +503,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     total: formatCurrency(total),
     percent: totalBudget > 0 ? Math.round((total / totalBudget) * 100) : 0,
   }));
-  const budgetLeft = totalBudget - monthlyOutgoing;
+  const budgetLeft = totalBudget - monthlyOutgoing.toNumber();
 
   const goalRows = goals.slice(0, DASHBOARD_ITEM_LIMIT).map((goal) => {
     const currentAmount = goal.currentAmount?.toNumber() ?? null;
@@ -702,12 +701,12 @@ export async function getDashboardData(): Promise<DashboardData> {
   return {
     stats: {
       netWorth: {
-        value: formatCurrency(netWorth),
+        value: formatCurrency(netWorth.toNumber()),
         detail: `${accounts.length} tracked ${accounts.length === 1 ? "account" : "accounts"}`,
       },
       cashFlow: {
-        value: formatCurrency(cashFlow),
-        detail: `${formatCurrency(monthlyIncome)} in, ${formatCurrency(monthlyOutgoing)} out`,
+        value: formatCurrency(cashFlow.toNumber()),
+        detail: `${formatCurrency(monthlyIncome.toNumber())} in, ${formatCurrency(monthlyOutgoing.toNumber())} out`,
       },
       budgetLeft: {
         value: formatCurrency(budgetLeft),
