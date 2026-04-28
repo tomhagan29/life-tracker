@@ -12,10 +12,15 @@ export type Column<T> = {
   cell: (row: T) => React.ReactNode;
 };
 
-export function DataTable<T>({ columns, rows, getRowKey, footer }: DataTableProps<T>) {
+export function DataTable<T>({
+  columns,
+  rows,
+  getRowKey,
+  footer,
+}: DataTableProps<T>) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[560px] text-left text-sm">
+      <table className="w-full text-left text-sm">
         <thead className="bg-zinc-50 text-zinc-500">
           <tr>
             {columns.map((column) => (
@@ -33,7 +38,10 @@ export function DataTable<T>({ columns, rows, getRowKey, footer }: DataTableProp
           {rows.map((row) => (
             <tr key={getRowKey(row)}>
               {columns.map((column) => (
-                <td key={column.key} className={`px-5 py-4 ${column.className ?? ""}`}>
+                <td
+                  key={column.key}
+                  className={`px-5 py-4 ${column.className ?? ""}`}
+                >
                   {column.cell(row)}
                 </td>
               ))}

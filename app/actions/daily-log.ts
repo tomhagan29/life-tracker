@@ -105,21 +105,25 @@ function parseDailyLogForm(formData: FormData) {
 }
 
 function parseLogDate(date: string) {
-  return new Date(`${date}T12:00:00`);
+  return new Date(`${date}T12:00:00Z`);
 }
 
 function getLogDateRange(date: string) {
-  const start = new Date(`${date}T00:00:00`);
+  const start = new Date(`${date}T00:00:00Z`);
   const end = new Date(start);
-  end.setDate(end.getDate() + 1);
+  end.setUTCDate(end.getUTCDate() + 1);
 
   return { start, end };
 }
 
 function getLogMonthRange(date: string) {
   const parsed = parseLogDate(date);
-  const start = new Date(parsed.getFullYear(), parsed.getMonth(), 1);
-  const end = new Date(parsed.getFullYear(), parsed.getMonth() + 1, 1);
+  const start = new Date(
+    Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), 1),
+  );
+  const end = new Date(
+    Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth() + 1, 1),
+  );
 
   return { start, end };
 }
