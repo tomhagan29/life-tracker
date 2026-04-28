@@ -116,6 +116,26 @@ function getLogDateRange(date: string) {
   return { start, end };
 }
 
+function getLogMonthRange(date: string) {
+  const parsed = parseLogDate(date);
+  const start = new Date(parsed.getFullYear(), parsed.getMonth(), 1);
+  const end = new Date(parsed.getFullYear(), parsed.getMonth() + 1, 1);
+
+  return { start, end };
+}
+
+function getHabitScheduleLabel(isDaily: boolean, frequency: number | null) {
+  if (isDaily) {
+    return "Daily";
+  }
+
+  if (frequency === null) {
+    return "Monthly";
+  }
+
+  return `${frequency}/week`;
+}
+
 function getDailyLogActionError(error: unknown) {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === "P2003") {
@@ -228,8 +248,16 @@ export async function getDailyLogOptions(date: string): Promise<DailyLogOptions>
     ? parsedDate.data
     : new Date().toISOString().slice(0, 10);
   const dateRange = getLogDateRange(logDate);
+  const monthRange = getLogMonthRange(logDate);
 
-  const [accounts, categories, transactions, habits, habitCompletions] =
+  const [
+    accounts,
+    categories,
+    transactions,
+    habits,
+    dayHabitCompletions,
+    monthHabitCompletions,
+  ] =
     await Promise.all([
       prisma.account.findMany({
         orderBy: { name: "asc" },
@@ -274,7 +302,23 @@ export async function getDailyLogOptions(date: string): Promise<DailyLogOptions>
         },
         select: { habitId: true },
       }),
+      prisma.habitCompletion.findMany({
+        where: {
+          date: {
+            gte: monthRange.start,
+            lt: monthRange.end,
+          },
+        },
+        select: { habitId: true },
+      }),
     ]);
+
+  const dayCompletedHabitIds = new Set(
+    dayHabitCompletions.map((habitCompletion) => habitCompletion.habitId),
+  );
+  const monthCompletedHabitIds = new Set(
+    monthHabitCompletions.map((habitCompletion) => habitCompletion.habitId),
+  );
 
   return {
     accounts,
@@ -296,11 +340,15 @@ export async function getDailyLogOptions(date: string): Promise<DailyLogOptions>
       id: habit.id,
       name: habit.name,
       streak: habit.streak,
-      schedule: habit.isDaily ? "Daily" : `${habit.frequency ?? 0}/week`,
+      schedule: getHabitScheduleLabel(habit.isDaily, habit.frequency),
     })),
-    completedHabitIds: habitCompletions.map(
-      (habitCompletion) => habitCompletion.habitId,
-    ),
+    completedHabitIds: habits
+      .filter((habit) =>
+        habit.isDaily || habit.frequency !== null
+          ? dayCompletedHabitIds.has(habit.id)
+          : monthCompletedHabitIds.has(habit.id),
+      )
+      .map((habit) => habit.id),
   };
 }
 
@@ -320,9 +368,17 @@ export async function submitDailyLog(
   try {
     const date = parseLogDate(parsed.data.date);
     const dateRange = getLogDateRange(parsed.data.date);
+    const monthRange = getLogMonthRange(parsed.data.date);
     const habitIds = Array.from(new Set(parsed.data.habitIds));
 
     await prisma.$transaction(async (tx) => {
+      const habits = await tx.habit.findMany({
+        select: {
+          id: true,
+          isDaily: true,
+          frequency: true,
+        },
+      });
       const existingTransactions = await tx.transaction.findMany({
         where: {
           date: {
@@ -339,19 +395,44 @@ export async function submitDailyLog(
       const existingHabitCompletions = await tx.habitCompletion.findMany({
         where: {
           date: {
-            gte: dateRange.start,
-            lt: dateRange.end,
+            gte: monthRange.start,
+            lt: monthRange.end,
           },
         },
-        select: { habitId: true },
+        select: { habitId: true, date: true },
       });
-      const existingHabitIds = existingHabitCompletions.map(
-        (habitCompletion) => habitCompletion.habitId,
+      const habitById = new Map(habits.map((habit) => [habit.id, habit]));
+      const dayExistingHabitIds = new Set(
+        existingHabitCompletions
+          .filter(
+            (habitCompletion) =>
+              habitCompletion.date >= dateRange.start &&
+              habitCompletion.date < dateRange.end,
+          )
+          .map((habitCompletion) => habitCompletion.habitId),
       );
-      const habitIdsToAdd = habitIds.filter(
-        (habitId) => !existingHabitIds.includes(habitId),
+      const monthExistingHabitIds = new Set(
+        existingHabitCompletions.map((habitCompletion) => habitCompletion.habitId),
       );
-      const habitIdsToRemove = existingHabitIds.filter(
+      const existingRelevantHabitIds = habits
+        .filter((habit) =>
+          habit.isDaily || habit.frequency !== null
+            ? dayExistingHabitIds.has(habit.id)
+            : monthExistingHabitIds.has(habit.id),
+        )
+        .map((habit) => habit.id);
+      const habitIdsToAdd = habitIds.filter((habitId) => {
+        const habit = habitById.get(habitId);
+
+        if (!habit) {
+          return false;
+        }
+
+        return habit.isDaily || habit.frequency !== null
+          ? !dayExistingHabitIds.has(habitId)
+          : !monthExistingHabitIds.has(habitId);
+      });
+      const habitIdsToRemove = existingRelevantHabitIds.filter(
         (habitId) => !habitIds.includes(habitId),
       );
 
@@ -428,15 +509,37 @@ export async function submitDailyLog(
       }
 
       if (habitIdsToRemove.length > 0) {
-        await tx.habitCompletion.deleteMany({
-          where: {
-            habitId: { in: habitIdsToRemove },
-            date: {
-              gte: dateRange.start,
-              lt: dateRange.end,
-            },
-          },
+        const monthlyHabitIds = habitIdsToRemove.filter((habitId) => {
+          const habit = habitById.get(habitId);
+          return habit && !habit.isDaily && habit.frequency === null;
         });
+        const dayScopedHabitIds = habitIdsToRemove.filter(
+          (habitId) => !monthlyHabitIds.includes(habitId),
+        );
+
+        if (dayScopedHabitIds.length > 0) {
+          await tx.habitCompletion.deleteMany({
+            where: {
+              habitId: { in: dayScopedHabitIds },
+              date: {
+                gte: dateRange.start,
+                lt: dateRange.end,
+              },
+            },
+          });
+        }
+
+        if (monthlyHabitIds.length > 0) {
+          await tx.habitCompletion.deleteMany({
+            where: {
+              habitId: { in: monthlyHabitIds },
+              date: {
+                gte: monthRange.start,
+                lt: monthRange.end,
+              },
+            },
+          });
+        }
       }
 
       for (const habitId of habitIdsToAdd) {

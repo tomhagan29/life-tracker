@@ -4,9 +4,15 @@ import { HabitsTable, HabitRow } from "@/app/components/habits/habits-table";
 import { PageHeader } from "@/app/components/shared/page-header";
 import { Sidebar } from "@/app/components/shared/sidebar";
 
+export const dynamic = "force-dynamic";
+
 function getHabitSchedule(isDaily: boolean, frequency: number | null) {
   if (isDaily) {
     return "Daily";
+  }
+
+  if (frequency === null) {
+    return "Monthly";
   }
 
   const target = frequency ?? 0;
@@ -16,6 +22,10 @@ function getHabitSchedule(isDaily: boolean, frequency: number | null) {
 function getHabitScheduleValue(isDaily: boolean, frequency: number | null) {
   if (isDaily) {
     return "daily";
+  }
+
+  if (frequency === null) {
+    return "monthly";
   }
 
   return `weekly-${frequency ?? 1}`;

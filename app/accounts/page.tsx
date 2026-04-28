@@ -4,6 +4,8 @@ import { PageHeader } from "@/app/components/shared/page-header";
 import { getAccounts } from "@/app/actions/accounts";
 import { AccountRow } from "@/app/components/accounts/accounts-table";
 
+export const dynamic = "force-dynamic";
+
 const accountTypeLabel = {
   current: "Current",
   savings: "Savings",

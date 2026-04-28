@@ -7,6 +7,8 @@ import { DataManagementCard } from "@/app/components/settings/data-management-ca
 import { PageHeader } from "@/app/components/shared/page-header";
 import { Sidebar } from "@/app/components/shared/sidebar";
 
+export const dynamic = "force-dynamic";
+
 export default async function SettingsPage() {
   const [financeCategories, habitCategories] = await Promise.all([
     getFinanceCategories(),

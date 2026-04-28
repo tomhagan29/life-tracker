@@ -1,12 +1,20 @@
 {
-  "name": "app2",
+  "name": "life-tracker",
+  "productName": "Life Tracker",
   "version": "0.1.0",
+  "description": "A finance and habit tracking dashboard.",
+  "author": "Tom",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "desktop:dev": "tauri dev --config '{\"bundle\":{\"resources\":[]}}'",
+    "desktop:build": "tauri build",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:prepare": "node scripts/prepare-tauri-build.cjs"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.8.0",
@@ -19,9 +27,11 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@tauri-apps/cli": "^2.10.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@tauri-apps/cli": "^2.9.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "prisma": "^7.8.0",

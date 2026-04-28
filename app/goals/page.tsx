@@ -3,6 +3,8 @@ import { GoalRow, GoalsTable } from "@/app/components/goals/goals-table";
 import { PageHeader } from "@/app/components/shared/page-header";
 import { Sidebar } from "@/app/components/shared/sidebar";
 
+export const dynamic = "force-dynamic";
+
 const goalTypeLabel = {
   milestone: "Milestone",
   numerical: "Numerical",

@@ -16,6 +16,26 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Desktop App
+
+This project is configured as a Tauri desktop app. In development, run:
+
+```bash
+npm run desktop:dev
+```
+
+To build a distributable desktop app for the current operating system, run:
+
+```bash
+npm run desktop:build
+```
+
+The Tauri build runs `npm run tauri:prepare` first. That command creates the Next standalone server bundle, copies static assets and Prisma migrations, removes local `.env`/database files from the bundle, and copies the local Node runtime into `src-tauri/bin/` so the packaged app can run without asking your friend to install Node.
+
+The packaged app stores its SQLite database in the user's application data folder. Local development still uses `dev.db` from the project root.
+
+Linux build machines need the Tauri native prerequisites installed, including Rust/Cargo, WebKitGTK 4.1, and librsvg.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

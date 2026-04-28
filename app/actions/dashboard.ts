@@ -44,6 +44,7 @@ export type DashboardMoneyFlowBar = {
 };
 
 export type DashboardMoneyFlow = {
+  week: DashboardMoneyFlowBar[];
   month: DashboardMoneyFlowBar[];
   year: DashboardMoneyFlowBar[];
 };
@@ -218,17 +219,38 @@ function getGoalProgress(currentAmount: number | null, targetAmount: number | nu
 }
 
 function getHabitProgress(habit: {
+  rangeStart: Date;
+  rangeEnd: Date;
   isDaily: boolean;
   frequency: number | null;
   completions: { date: Date }[];
 }) {
-  const target = habit.isDaily ? 7 : habit.frequency ?? 0;
+  const target =
+    habit.isDaily ? 7 : habit.frequency === null ? 1 : habit.frequency;
 
   if (target <= 0) {
     return 0;
   }
 
-  return Math.min(Math.round((habit.completions.length / target) * 100), 100);
+  const completionCount =
+    habit.completions.filter(
+      (completion) =>
+        completion.date >= habit.rangeStart && completion.date < habit.rangeEnd,
+    ).length;
+
+  return Math.min(Math.round((completionCount / target) * 100), 100);
+}
+
+function getHabitScheduleLabel(isDaily: boolean, frequency: number | null) {
+  if (isDaily) {
+    return "Daily habit";
+  }
+
+  if (frequency === null) {
+    return "Monthly habit";
+  }
+
+  return `${frequency} ${frequency === 1 ? "time" : "times"}/week`;
 }
 
 function getWeek(today: Date, completions: { date: Date }[]) {
@@ -286,6 +308,21 @@ function getCurrentMonthDays(today: Date) {
   });
 }
 
+function getCurrentWeekDays(today: Date) {
+  const weekStart = getStartOfWeek(today);
+
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + index);
+
+    return {
+      label: dayFormatter.format(date),
+      start: date,
+      end: new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1),
+    };
+  });
+}
+
 export async function getSidebarSnapshot(): Promise<SidebarSnapshot> {
   const today = new Date();
   const budgetItems = await prisma.budgetItem.findMany({
@@ -339,6 +376,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   const monthStart = getStartOfMonth(today);
   const nextMonth = getNextMonth(today);
   const months = getLastTwelveMonths(today);
+  const weekDays = getCurrentWeekDays(today);
   const monthDays = getCurrentMonthDays(today);
 
   const [accounts, budgetItems, goals, habits, transactions] = await Promise.all([
@@ -350,16 +388,16 @@ export async function getDashboardData(): Promise<DashboardData> {
     prisma.goal.findMany({ orderBy: { id: "asc" } }),
     prisma.habit.findMany({
       orderBy: [{ streak: "desc" }, { id: "asc" }],
-      include: {
-        category: true,
-        completions: {
-          where: {
-            date: {
-              gte: weekStart,
-              lt: nextWeek,
+        include: {
+          category: true,
+          completions: {
+            where: {
+              date: {
+                gte: monthStart,
+                lt: nextMonth,
+              },
             },
-          },
-          select: { date: true },
+            select: { date: true },
         },
       },
     }),
@@ -452,13 +490,28 @@ export async function getDashboardData(): Promise<DashboardData> {
     id: habit.id,
     name: habit.name,
     streak: `${habit.streak} ${habit.streak === 1 ? "day" : "days"}`,
-    progress: getHabitProgress(habit),
+    progress: getHabitProgress({
+      ...habit,
+      rangeStart:
+        habit.isDaily || habit.frequency !== null ? weekStart : monthStart,
+      rangeEnd: habit.isDaily || habit.frequency !== null ? nextWeek : nextMonth,
+    }),
   }));
   const habitScore =
     habits.length > 0
       ? Math.round(
-          habits.reduce((sum, habit) => sum + getHabitProgress(habit), 0) /
-            habits.length,
+          habits.reduce(
+            (sum, habit) =>
+              sum +
+              getHabitProgress({
+                ...habit,
+                rangeStart:
+                  habit.isDaily || habit.frequency !== null ? weekStart : monthStart,
+                rangeEnd:
+                  habit.isDaily || habit.frequency !== null ? nextWeek : nextMonth,
+              }),
+            0,
+          ) / habits.length,
         )
       : 0;
 
@@ -511,6 +564,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     }));
   }
   const moneyFlow: DashboardMoneyFlow = {
+    week: buildMoneyFlowBars(weekDays),
     month: buildMoneyFlowBars(monthDays),
     year: buildMoneyFlowBars(months),
   };
@@ -541,7 +595,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   const habitItems = habits.slice(0, 4).map((habit) => ({
     id: `habit-${habit.id}`,
     task: habit.name,
-    status: habit.isDaily ? "Daily habit" : `${habit.frequency ?? 0}/week habit`,
+    status: getHabitScheduleLabel(habit.isDaily, habit.frequency),
     meta: `${habit.streak} day streak`,
   }));
   const todayItems = [...goalItems, ...budgetItemsDueToday, ...habitItems].slice(0, 4);

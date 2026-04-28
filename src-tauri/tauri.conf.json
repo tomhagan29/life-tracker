@@ -1,0 +1,26 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Life Tracker",
+  "version": "0.1.0",
+  "identifier": "com.lifetracker.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev -- --hostname 127.0.0.1 --port 3000",
+    "devUrl": "http://127.0.0.1:3000",
+    "beforeBuildCommand": "npm run tauri:prepare",
+    "frontendDist": "../desktop-loading"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "resources": [
+      "../.next/standalone/**",
+      "bin/node*"
+    ]
+  }
+}

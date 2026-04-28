@@ -49,6 +49,7 @@ function ScheduleSelect({
       className="w-32 rounded-md border border-zinc-300 px-2 py-1 text-zinc-950 disabled:bg-zinc-100"
     >
       <option value="daily">Daily</option>
+      <option value="monthly">Monthly</option>
       {frequencies.map((frequency) => (
         <option key={frequency} value={`weekly-${frequency}`}>
           {frequency}/week
@@ -240,7 +241,7 @@ export function HabitsTable({ habits, categories }: HabitsTableProps) {
         <div>
           <h3 className="text-xl font-semibold">Habits</h3>
           <p className="mt-1 text-sm text-zinc-500">
-            Routines, streaks, and weekly targets
+            Routines, streaks, and recurring targets
           </p>
         </div>
       </div>

@@ -1,0 +1,18 @@
+[package]
+name = "life-tracker"
+version = "0.1.0"
+description = "A finance and habit tracking dashboard."
+authors = ["Tom"]
+edition = "2021"
+
+[lib]
+name = "life_tracker_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+anyhow = "1"
+tauri = { version = "2", features = [] }
+url = "2"

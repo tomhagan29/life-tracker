@@ -4,6 +4,8 @@ import { PageHeader } from "@/app/components/shared/page-header";
 import { getBudgetItems, getFinanceCategories } from "@/app/actions/budget";
 import { getAccounts } from "@/app/actions/accounts";
 
+export const dynamic = "force-dynamic";
+
 export default async function BudgetDisplay() {
   const [budgetItems, accounts, categories] = await Promise.all([
     getBudgetItems(),

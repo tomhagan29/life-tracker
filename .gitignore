@@ -19,6 +19,9 @@
 
 # production
 /build
+/dist
+/src-tauri/target
+/src-tauri/bin/node*
 
 # misc
 .DS_Store

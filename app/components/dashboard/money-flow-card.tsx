@@ -6,6 +6,7 @@ import { useState } from "react";
 type MoneyFlowMode = keyof DashboardMoneyFlow;
 
 const modes: { value: MoneyFlowMode; label: string }[] = [
+  { value: "week", label: "Weekly" },
   { value: "month", label: "Month" },
   { value: "year", label: "Year" },
 ];
@@ -15,7 +16,7 @@ export function MoneyFlowCard({
 }: {
   moneyFlow: DashboardMoneyFlow;
 }) {
-  const [mode, setMode] = useState<MoneyFlowMode>("month");
+  const [mode, setMode] = useState<MoneyFlowMode>("week");
   const bars = moneyFlow[mode];
   const hasFlow = bars.some(
     (bar) => bar.incomePercent > 0 || bar.outgoingPercent > 0,
@@ -57,9 +58,9 @@ export function MoneyFlowCard({
           className="mt-6 grid h-72 items-end gap-2 border-b border-zinc-200 pb-4"
           style={{ gridTemplateColumns: `repeat(${bars.length}, minmax(0, 1fr))` }}
         >
-          {bars.map((bar) => (
+          {bars.map((bar, index) => (
             <div
-              key={bar.label}
+              key={`${mode}-${bar.label}-${index}`}
               className="flex h-full flex-col justify-end gap-1"
               title={bar.label}
             >

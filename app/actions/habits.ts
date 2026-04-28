@@ -17,7 +17,7 @@ const habitSchema = z
     schedule: z.string().trim().min(1, "Schedule is required"),
   })
   .superRefine((habit, context) => {
-    if (habit.schedule === "daily") {
+    if (habit.schedule === "daily" || habit.schedule === "monthly") {
       return;
     }
 
@@ -54,6 +54,13 @@ function getHabitScheduleData(schedule: string) {
   if (schedule === "daily") {
     return {
       isDaily: true,
+      frequency: null,
+    };
+  }
+
+  if (schedule === "monthly") {
+    return {
+      isDaily: false,
       frequency: null,
     };
   }
