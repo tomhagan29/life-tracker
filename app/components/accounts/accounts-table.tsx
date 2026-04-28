@@ -117,21 +117,15 @@ export function AccountsTable({ accounts }: { accounts: AccountRow[] }) {
       key: "balance",
       header: "Balance",
       className: "text-right font-semibold",
-      cell: (row) =>
-        editingAccountId === row.id ? (
-          <input
-            form={`edit-account-form-${row.id}`}
-            name="balance"
-            defaultValue={row.balance}
-            className="w-full rounded-md border border-zinc-300 px-2 py-1 text-right font-normal text-zinc-950"
-          />
-        ) : (
+      cell: (row) => (
+        <div className={editingAccountId === row.id ? "py-1" : ""}>
           <span
             className={row.balanceValue < 0 ? "text-red-600" : "text-green-600"}
           >
             {row.balance}
           </span>
-        ),
+        </div>
+      ),
     },
     {
       key: "actions",

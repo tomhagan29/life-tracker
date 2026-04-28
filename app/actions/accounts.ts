@@ -11,7 +11,7 @@ export type AccountActionState = {
   message?: string;
 };
 
-const accountSchema = z.object({
+const accountCreateSchema = z.object({
   name: z
     .string()
     .trim()
@@ -21,10 +21,19 @@ const accountSchema = z.object({
   type: z.enum(AccountType),
 });
 
-function parseAccountForm(formData: FormData) {
-  return accountSchema.safeParse({
+const accountUpdateSchema = accountCreateSchema.omit({ balance: true });
+
+function parseCreateAccountForm(formData: FormData) {
+  return accountCreateSchema.safeParse({
     name: formData.get("name"),
     balance: formData.get("balance"),
+    type: formData.get("type"),
+  });
+}
+
+function parseUpdateAccountForm(formData: FormData) {
+  return accountUpdateSchema.safeParse({
+    name: formData.get("name"),
     type: formData.get("type"),
   });
 }
@@ -50,7 +59,7 @@ function getAccountActionError(error: unknown) {
 export async function createAccount(
   formData: FormData,
 ): Promise<AccountActionState> {
-  const parsed = parseAccountForm(formData);
+  const parsed = parseCreateAccountForm(formData);
 
   if (!parsed.success) {
     return {
@@ -86,7 +95,7 @@ export async function updateAccount(
   id: number,
   formData: FormData,
 ): Promise<AccountActionState> {
-  const parsed = parseAccountForm(formData);
+  const parsed = parseUpdateAccountForm(formData);
 
   if (!parsed.success) {
     return {
@@ -101,7 +110,6 @@ export async function updateAccount(
       where: { id },
       data: {
         name: parsed.data.name,
-        balance: new Prisma.Decimal(parsed.data.balance),
         type: parsed.data.type,
       },
     });
