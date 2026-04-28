@@ -38,8 +38,6 @@ function parseBudgetForm(formData: FormData) {
 }
 
 function getBudgetItemActionError(error: unknown) {
-  console.error("Budget item action failed:", error);
-
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === "P2002") {
       return "A budget item with this name already exists.";
