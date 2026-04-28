@@ -500,12 +500,21 @@ export async function submitDailyLog(
       }
 
       if (habitIdsToAdd.length > 0) {
-        await tx.habitCompletion.createMany({
-          data: habitIdsToAdd.map((habitId) => ({
-            habitId,
-            date,
-          })),
-        });
+        for (const habitId of habitIdsToAdd) {
+          await tx.habitCompletion.upsert({
+            where: {
+              habitId_date: {
+                habitId,
+                date,
+              },
+            },
+            create: {
+              habitId,
+              date,
+            },
+            update: {},
+          });
+        }
       }
 
       if (habitIdsToRemove.length > 0) {
