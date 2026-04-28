@@ -348,23 +348,21 @@ export async function getSidebarSnapshot(): Promise<SidebarSnapshot> {
     },
   });
 
-  const upcomingBills = budgetItems
-    .flatMap((item) => {
-      if (item.dueDay === null) {
-        return [];
-      }
+  const scheduledBudgetItems = budgetItems as Array<
+    (typeof budgetItems)[number] & { dueDay: number }
+  >;
 
+  const upcomingBills = scheduledBudgetItems
+    .map((item) => {
       const dueDate = getBudgetDueDate(today, item.dueDay);
 
-      return [
-        {
-          id: item.id,
-          name: item.name,
-          amount: formatDetailedCurrency(item.amount.toNumber()),
-          dueLabel: getDueLabel(today, dueDate),
-          dueTime: dueDate.getTime(),
-        },
-      ];
+      return {
+        id: item.id,
+        name: item.name,
+        amount: formatDetailedCurrency(item.amount.toNumber()),
+        dueLabel: getDueLabel(today, dueDate),
+        dueTime: dueDate.getTime(),
+      };
     })
     .sort((a, b) => a.dueTime - b.dueTime)
     .slice(0, 4)
@@ -382,8 +380,7 @@ export async function getSidebarSnapshot(): Promise<SidebarSnapshot> {
     number,
     { name: string; balance: number; total: number }
   >();
-  for (const item of budgetItems) {
-    if (item.dueDay === null) continue;
+  for (const item of scheduledBudgetItems) {
     const dueDate = getBudgetDueDate(today, item.dueDay);
     if (dueDate > warningCutoff) continue;
     const existing = accountTotals.get(item.account.id);
