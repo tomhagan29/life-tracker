@@ -20,6 +20,12 @@ type SidebarClientProps = {
       totalDue: string;
       shortfall: string;
     }[];
+    setup: {
+      hasAccounts: boolean;
+      hasCategories: boolean;
+      hasHabits: boolean;
+      hasGoals: boolean;
+    };
     quote: {
       text: string;
       author: string;
@@ -36,9 +42,24 @@ const navigationItems = [
   { label: "Settings", href: "/settings" },
 ];
 
+const setupSteps: { key: keyof SidebarClientProps["snapshot"]["setup"]; label: string; href: string }[] = [
+  { key: "hasAccounts", label: "Add an account", href: "/accounts" },
+  { key: "hasCategories", label: "Add categories", href: "/settings" },
+  { key: "hasHabits", label: "Create a habit", href: "/habits" },
+  { key: "hasGoals", label: "Set a goal", href: "/goals" },
+];
+
 export function SidebarClient({ snapshot }: SidebarClientProps) {
   const pathname = usePathname();
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+  const setupComplete =
+    snapshot.setup.hasAccounts &&
+    snapshot.setup.hasCategories &&
+    snapshot.setup.hasHabits &&
+    snapshot.setup.hasGoals;
+  const completedCount = setupSteps.filter(
+    (step) => snapshot.setup[step.key],
+  ).length;
 
   return (
     <>
@@ -83,6 +104,66 @@ export function SidebarClient({ snapshot }: SidebarClientProps) {
             );
           })}
         </nav>
+
+        {!setupComplete && (
+          <section className="mt-8 hidden rounded-lg border border-blue-200 bg-[#eff6ff] p-4 lg:block">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-zinc-950">Get started</p>
+              <p className="text-xs font-medium text-blue-700">
+                {completedCount}/{setupSteps.length}
+              </p>
+            </div>
+            <p className="mt-1 text-xs leading-5 text-zinc-600">
+              A few quick steps to unlock the full tracker.
+            </p>
+            <ul className="mt-3 space-y-2">
+              {setupSteps.map((step) => {
+                const done = snapshot.setup[step.key];
+
+                return (
+                  <li key={step.key} className="flex items-start gap-2">
+                    <span
+                      className={`mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border ${
+                        done
+                          ? "border-blue-600 bg-blue-600"
+                          : "border-zinc-300 bg-white"
+                      }`}
+                      aria-hidden
+                    >
+                      {done && (
+                        <svg
+                          className="size-3 text-white"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={3}
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="m4.5 12.75 6 6 9-13.5"
+                          />
+                        </svg>
+                      )}
+                    </span>
+                    {done ? (
+                      <span className="text-sm text-zinc-400 line-through">
+                        {step.label}
+                      </span>
+                    ) : (
+                      <Link
+                        href={step.href}
+                        className="text-sm font-medium text-blue-700 hover:text-blue-800 hover:underline"
+                      >
+                        {step.label}
+                      </Link>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
 
         <section className="mt-8 hidden rounded-lg border border-zinc-200 bg-[#eef8f2] p-4 lg:block">
           <p className="text-sm font-semibold text-zinc-950">Upcoming bills</p>

@@ -95,9 +95,17 @@ export type SidebarAccountWarning = {
   shortfall: string;
 };
 
+export type SidebarSetupChecklist = {
+  hasAccounts: boolean;
+  hasCategories: boolean;
+  hasHabits: boolean;
+  hasGoals: boolean;
+};
+
 export type SidebarSnapshot = {
   upcomingBills: SidebarUpcomingBill[];
   accountWarnings: SidebarAccountWarning[];
+  setup: SidebarSetupChecklist;
   quote: {
     text: string;
     author: string;
@@ -337,17 +345,31 @@ const DASHBOARD_ITEM_LIMIT = 4;
 
 export async function getSidebarSnapshot(): Promise<SidebarSnapshot> {
   const today = new Date();
-  const budgetItems = await prisma.budgetItem.findMany({
-    where: { dueDay: { not: null } },
-    orderBy: { id: "asc" },
-    select: {
-      id: true,
-      name: true,
-      amount: true,
-      dueDay: true,
-      account: { select: { id: true, name: true, balance: true } },
-    },
-  });
+  const [
+    budgetItems,
+    accountCount,
+    financeCategoryCount,
+    habitCategoryCount,
+    habitCount,
+    goalCount,
+  ] = await Promise.all([
+    prisma.budgetItem.findMany({
+      where: { dueDay: { not: null } },
+      orderBy: { id: "asc" },
+      select: {
+        id: true,
+        name: true,
+        amount: true,
+        dueDay: true,
+        account: { select: { id: true, name: true, balance: true } },
+      },
+    }),
+    prisma.account.count(),
+    prisma.financeCategory.count(),
+    prisma.habitCategory.count(),
+    prisma.habit.count(),
+    prisma.goal.count(),
+  ]);
 
   const scheduledBudgetItems = budgetItems as Array<
     (typeof budgetItems)[number] & { dueDay: number }
@@ -408,6 +430,12 @@ export async function getSidebarSnapshot(): Promise<SidebarSnapshot> {
   return {
     upcomingBills,
     accountWarnings,
+    setup: {
+      hasAccounts: accountCount > 0,
+      hasCategories: financeCategoryCount > 0 || habitCategoryCount > 0,
+      hasHabits: habitCount > 0,
+      hasGoals: goalCount > 0,
+    },
     quote: getDailyQuote(today),
   };
 }
