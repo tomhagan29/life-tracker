@@ -18,6 +18,8 @@ export type AccountRow = {
   rawType: AccountType;
   balance: string;
   balanceValue: number;
+  outgoings: string;
+  outgoingsValue: number;
 };
 
 const accountTypes: { value: AccountType; label: string }[] = [
@@ -123,6 +125,22 @@ export function AccountsTable({ accounts }: { accounts: AccountRow[] }) {
             className={row.balanceValue < 0 ? "text-red-600" : "text-green-600"}
           >
             {row.balance}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "outgoings",
+      header: "Monthly outgoings",
+      className: "text-right",
+      cell: (row) => (
+        <div className={editingAccountId === row.id ? "py-1" : ""}>
+          <span
+            className={
+              row.outgoingsValue > 0 ? "text-zinc-700" : "text-zinc-400"
+            }
+          >
+            {row.outgoings}
           </span>
         </div>
       ),
@@ -262,6 +280,8 @@ export function AccountsTable({ accounts }: { accounts: AccountRow[] }) {
                 className="w-full rounded-md border border-zinc-300 px-2 py-1 text-right"
               />
             </td>
+
+            <td className="px-5 py-3" />
 
             <td className="px-5 py-3 text-right">
               <button
