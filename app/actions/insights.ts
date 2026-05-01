@@ -194,50 +194,79 @@ function buildMilestones(
   const latestPoint = series[series.length - 1];
   const firstBucket = buckets[0];
   const latestBucket = buckets[buckets.length - 1];
-  const reachedTargets = MILESTONE_TARGETS.filter(
-    (target) => target > firstPoint.netWorth && target <= latestPoint.netWorth,
-  ).slice(-3);
-  const nextTargetIndex = MILESTONE_TARGETS.findIndex(
-    (target) =>
-      target > latestPoint.netWorth && !reachedTargets.includes(target),
+  const journeyTargets = MILESTONE_TARGETS.filter(
+    (target) => target > firstPoint.netWorth,
   );
-  const upcomingTargets =
-    nextTargetIndex >= 0 ? MILESTONE_TARGETS.slice(nextTargetIndex) : [];
-  const visibleTargets = [...reachedTargets, ...upcomingTargets].slice(0, 3);
+  const fallbackTargets =
+    journeyTargets.length > 0
+      ? journeyTargets
+      : MILESTONE_TARGETS.slice(Math.max(MILESTONE_TARGETS.length - 3, 0));
+  const firstUnreachedIndex = fallbackTargets.findIndex(
+    (target) => latestPoint.netWorth < target,
+  );
+  const visibleTargetStart =
+    firstUnreachedIndex === -1
+      ? Math.max(fallbackTargets.length - 3, 0)
+      : firstUnreachedIndex === 0
+        ? 0
+        : Math.min(firstUnreachedIndex - 1, Math.max(fallbackTargets.length - 3, 0));
+  const visibleTargets = fallbackTargets
+    .slice(visibleTargetStart, visibleTargetStart + 3)
+    .map((target, index) => ({
+      target,
+      milestoneNumber: visibleTargetStart + index + 1,
+    }));
 
-  const targetMilestones = visibleTargets.map((target) => {
+  let hasNextMilestone = false;
+  const targetMilestones = visibleTargets.map(({ target, milestoneNumber }) => {
     const reachedIndex = series.findIndex((point) => point.netWorth >= target);
     const reached = reachedIndex >= 0;
     const reachedBucket = reached ? buckets[reachedIndex] : null;
+    const isNext = !reached && !hasNextMilestone;
+
+    if (isNext) {
+      hasNextMilestone = true;
+    }
 
     return {
-      label: formatCurrency(target),
+      label: `Milestone ${milestoneNumber}`,
       value: formatCurrency(target),
-      dateLabel: reachedBucket?.dateLabel ?? "Next",
-      detail: reached ? "Milestone reached" : "In progress",
+      dateLabel: reached ? reachedBucket?.dateLabel ?? "" : isNext ? "Next" : "Upcoming",
+      detail: reached ? "Milestone reached" : isNext ? "In progress" : "",
       isCurrent: false,
       isReached: reached,
     };
   });
 
+  const nextVisibleTargetIndex = visibleTargets.findIndex(
+    ({ target }) => latestPoint.netWorth < target,
+  );
+  const nowMilestone = {
+    label: "Now",
+    value: formatCurrency(latestPoint.netWorth),
+    dateLabel: latestBucket.dateLabel,
+    detail: `${getMonthsBetween(firstBucket.start, latestBucket.start)} months tracked`,
+    isCurrent: true,
+    isReached: true,
+  };
+  const startingMilestone = {
+    label: "Starting point",
+    value: formatCurrency(firstPoint.netWorth),
+    dateLabel: firstBucket.dateLabel,
+    detail: "First chart month",
+    isCurrent: false,
+    isReached: true,
+  };
+
+  if (nextVisibleTargetIndex === -1) {
+    return [startingMilestone, ...targetMilestones, nowMilestone];
+  }
+
   return [
-    {
-      label: "Starting point",
-      value: formatCurrency(firstPoint.netWorth),
-      dateLabel: firstBucket.dateLabel,
-      detail: "First chart month",
-      isCurrent: false,
-      isReached: true,
-    },
-    ...targetMilestones,
-    {
-      label: "Now",
-      value: formatCurrency(latestPoint.netWorth),
-      dateLabel: latestBucket.dateLabel,
-      detail: `${getMonthsBetween(firstBucket.start, latestBucket.start)} months tracked`,
-      isCurrent: true,
-      isReached: true,
-    },
+    startingMilestone,
+    ...targetMilestones.slice(0, nextVisibleTargetIndex),
+    nowMilestone,
+    ...targetMilestones.slice(nextVisibleTargetIndex),
   ];
 }
 
