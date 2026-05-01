@@ -26,11 +26,11 @@ export function DashboardContent({ dashboard }: { dashboard: DashboardData }) {
     <>
       <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <DashboardCardBoundary
-          title="Net worth"
+          title="Tracked net worth"
           resetKey={dashboard.stats.netWorth.value}
         >
           <StatCard
-            label="Net worth"
+            label="Tracked net worth"
             value={dashboard.stats.netWorth.value}
             detail={dashboard.stats.netWorth.detail}
             accent="bg-emerald-500"

@@ -66,6 +66,7 @@ function getBudgetItemActionError(error: unknown) {
 function revalidateBudgetPaths() {
   revalidatePath("/");
   revalidatePath("/budget");
+  revalidatePath("/insights");
 }
 
 export async function createBudgetItem(

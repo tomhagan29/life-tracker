@@ -51,6 +51,7 @@ function revalidateCategoryPaths() {
   revalidatePath("/settings");
   revalidatePath("/budget");
   revalidatePath("/habits");
+  revalidatePath("/insights");
 }
 
 export async function getFinanceCategories() {

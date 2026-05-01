@@ -147,6 +147,7 @@ function getGoalMilestoneActionError(error: unknown) {
 function revalidateGoalPaths() {
   revalidatePath("/");
   revalidatePath("/goals");
+  revalidatePath("/insights");
 }
 
 function getGoalData(goal: z.infer<typeof goalSchema>) {
