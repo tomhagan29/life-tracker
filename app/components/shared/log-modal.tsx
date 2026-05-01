@@ -47,9 +47,8 @@ function getTodayDateString() {
 export function LogModal({ open, onClose }: LogModalProps) {
   const router = useRouter();
   const [options, setOptions] = useState<DailyLogOptions | null>(null);
-  const [transactions, setTransactions] = useState<TransactionDraft[]>([
-    createTransactionDraft(),
-  ]);
+  const [transactions, setTransactions] = useState<TransactionDraft[]>([]);
+  const [newTransaction, setNewTransaction] = useState(createTransactionDraft);
   const [completedHabitIds, setCompletedHabitIds] = useState<number[]>([]);
   const [investmentSnapshots, setInvestmentSnapshots] = useState<
     InvestmentSnapshotDraft[]
@@ -75,21 +74,18 @@ export function LogModal({ open, onClose }: LogModalProps) {
 
         setOptions(dailyLogOptions);
         setTransactions(
-          dailyLogOptions.transactions.length > 0
-            ? dailyLogOptions.transactions.map((transaction) => ({
-                id: transaction.id,
-                direction: transaction.direction,
-                amount: transaction.amount,
-                accountId: String(transaction.accountId),
-                categoryId: transaction.categoryId
-                  ? String(transaction.categoryId)
-                  : "",
-                transferAccountId: transaction.transferAccountId
-                  ? String(transaction.transferAccountId)
-                  : "",
-              }))
-            : [createTransactionDraft()],
+          dailyLogOptions.transactions.map((transaction) => ({
+            id: transaction.id,
+            direction: transaction.direction,
+            amount: transaction.amount,
+            accountId: String(transaction.accountId),
+            categoryId: transaction.categoryId ? String(transaction.categoryId) : "",
+            transferAccountId: transaction.transferAccountId
+              ? String(transaction.transferAccountId)
+              : "",
+          })),
         );
+        setNewTransaction(createTransactionDraft());
         setCompletedHabitIds(dailyLogOptions.completedHabitIds);
         setInvestmentSnapshots(dailyLogOptions.investmentSnapshots);
       })
@@ -147,12 +143,42 @@ export function LogModal({ open, onClose }: LogModalProps) {
     );
   }
 
+  function updateNewTransaction(
+    field: keyof Omit<TransactionDraft, "id">,
+    value: string,
+  ) {
+    setNewTransaction((current) => ({
+      ...current,
+      [field]: value,
+      ...(field === "direction" && value === "transfer" ? { categoryId: "" } : {}),
+      ...(field === "direction" && value !== "transfer"
+        ? { transferAccountId: "" }
+        : {}),
+    }));
+  }
+
   function removeTransaction(id: number) {
     setTransactions((current) =>
-      current.length === 1
-        ? [createTransactionDraft()]
-        : current.filter((transaction) => transaction.id !== id),
+      current.filter((transaction) => transaction.id !== id),
     );
+  }
+
+  function hasTransactionData(transaction: TransactionDraft) {
+    return (
+      transaction.amount.trim() !== "" ||
+      transaction.accountId !== "" ||
+      transaction.categoryId !== "" ||
+      transaction.transferAccountId !== ""
+    );
+  }
+
+  function addNewTransaction() {
+    if (!hasTransactionData(newTransaction)) {
+      return;
+    }
+
+    setTransactions((current) => [...current, newTransaction]);
+    setNewTransaction(createTransactionDraft());
   }
 
   function toggleHabit(habitId: number) {
@@ -172,7 +198,8 @@ export function LogModal({ open, onClose }: LogModalProps) {
   }
 
   function resetForm() {
-    setTransactions([createTransactionDraft()]);
+    setTransactions([]);
+    setNewTransaction(createTransactionDraft());
     setCompletedHabitIds([]);
     setInvestmentSnapshots([]);
     setLogDate(getTodayDateString());
@@ -185,15 +212,14 @@ export function LogModal({ open, onClose }: LogModalProps) {
     setActionState({ ok: true });
 
     const filledTransactions = transactions.filter(
-      (transaction) =>
-        transaction.amount.trim() !== "" ||
-        transaction.accountId !== "" ||
-        transaction.categoryId !== "" ||
-        transaction.transferAccountId !== "",
+      (transaction) => hasTransactionData(transaction),
     );
+    const transactionsToSubmit = hasTransactionData(newTransaction)
+      ? [...filledTransactions, newTransaction]
+      : filledTransactions;
     const formData = new FormData();
     formData.set("date", logDate);
-    formData.set("transactions", JSON.stringify(filledTransactions));
+    formData.set("transactions", JSON.stringify(transactionsToSubmit));
     formData.set("habitIds", JSON.stringify(completedHabitIds));
     formData.set("investmentSnapshots", JSON.stringify(investmentSnapshots));
 
@@ -251,7 +277,8 @@ export function LogModal({ open, onClose }: LogModalProps) {
                   onChange={(event) => {
                     setActionState({ ok: true });
                     setOptions(null);
-                    setTransactions([createTransactionDraft()]);
+                    setTransactions([]);
+                    setNewTransaction(createTransactionDraft());
                     setCompletedHabitIds([]);
                     setInvestmentSnapshots([]);
                     setLogDate(event.target.value);
@@ -298,19 +325,6 @@ export function LogModal({ open, onClose }: LogModalProps) {
                       Income adds, outgoing subtracts, transfers move money between accounts
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    disabled={!canAddTransactions}
-                    className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-semibold hover:bg-zinc-50 disabled:bg-zinc-100 disabled:text-zinc-400"
-                    onClick={() =>
-                      setTransactions((current) => [
-                        ...current,
-                        createTransactionDraft(),
-                      ])
-                    }
-                  >
-                    Add row
-                  </button>
                 </div>
 
                 {!canAddTransactions && (
@@ -320,6 +334,12 @@ export function LogModal({ open, onClose }: LogModalProps) {
                 )}
 
                 <div className="mt-3 space-y-3">
+                  {transactions.length === 0 && (
+                    <p className="rounded-lg border border-dashed border-zinc-300 p-3 text-sm font-medium text-zinc-500">
+                      No transactions logged for this date
+                    </p>
+                  )}
+
                   {transactions.map((transaction) => (
                     <div
                       key={transaction.id}
@@ -426,6 +446,94 @@ export function LogModal({ open, onClose }: LogModalProps) {
                       </button>
                     </div>
                   ))}
+
+                  <div className="grid gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 lg:grid-cols-[120px_1fr_1fr_140px_auto]">
+                    <select
+                      value={newTransaction.direction}
+                      disabled={!canAddTransactions}
+                      onChange={(event) =>
+                        updateNewTransaction("direction", event.target.value)
+                      }
+                      className="rounded-md border border-zinc-300 px-2 py-1.5 disabled:bg-zinc-100"
+                    >
+                      <option value="outgoing">Outgoing</option>
+                      <option value="income">Income</option>
+                      <option value="transfer">Transfer</option>
+                    </select>
+                    <select
+                      value={newTransaction.accountId}
+                      disabled={!canAddTransactions}
+                      onChange={(event) =>
+                        updateNewTransaction("accountId", event.target.value)
+                      }
+                      className="rounded-md border border-zinc-300 px-2 py-1.5 disabled:bg-zinc-100"
+                    >
+                      <option value="">
+                        {newTransaction.direction === "transfer"
+                          ? "From account"
+                          : "Account"}
+                      </option>
+                      {options?.accounts.map((account) => (
+                        <option key={account.id} value={account.id}>
+                          {account.name}
+                        </option>
+                      ))}
+                    </select>
+                    {newTransaction.direction === "transfer" ? (
+                      <select
+                        value={newTransaction.transferAccountId}
+                        disabled={!canAddTransactions}
+                        onChange={(event) =>
+                          updateNewTransaction(
+                            "transferAccountId",
+                            event.target.value,
+                          )
+                        }
+                        className="rounded-md border border-zinc-300 px-2 py-1.5 disabled:bg-zinc-100"
+                      >
+                        <option value="">To account</option>
+                        {options?.accounts.map((account) => (
+                          <option key={account.id} value={account.id}>
+                            {account.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <select
+                        value={newTransaction.categoryId}
+                        disabled={!canAddTransactions}
+                        onChange={(event) =>
+                          updateNewTransaction("categoryId", event.target.value)
+                        }
+                        className="rounded-md border border-zinc-300 px-2 py-1.5 disabled:bg-zinc-100"
+                      >
+                        <option value="">Category</option>
+                        {options?.categories.map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {category.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <input
+                      value={newTransaction.amount}
+                      disabled={!canAddTransactions}
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      onChange={(event) =>
+                        updateNewTransaction("amount", event.target.value)
+                      }
+                      className="rounded-md border border-zinc-300 px-2 py-1.5 text-right disabled:bg-zinc-100"
+                    />
+                    <button
+                      type="button"
+                      disabled={!canAddTransactions}
+                      className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:bg-zinc-300"
+                      onClick={addNewTransaction}
+                    >
+                      Add
+                    </button>
+                  </div>
                 </div>
               </section>
 
