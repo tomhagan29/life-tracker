@@ -52,9 +52,11 @@ export type InsightGoalProgress = {
   percent: number;
 };
 
-export type InsightDataGap = {
+export type InsightLongTermSignal = {
   label: string;
+  value: string;
   detail: string;
+  info: string;
 };
 
 export type InsightsData = {
@@ -64,7 +66,7 @@ export type InsightsData = {
   allocation: InsightAllocation[];
   categoryFlow: InsightCategoryFlow[];
   goals: InsightGoalProgress[];
-  dataGaps: InsightDataGap[];
+  longTermSignals: InsightLongTermSignal[];
   stats: {
     wealthCreated: string;
     incomeGrowth: string;
@@ -142,6 +144,8 @@ const DEBT_KEYWORDS = [
   "repayment",
   "finance",
 ];
+
+const ASSUMED_ANNUAL_INFLATION_RATE = 0.03;
 
 type AccountBalance = {
   id: number;
@@ -417,14 +421,24 @@ export async function getInsightsData(): Promise<InsightsData> {
       allocation: [],
       categoryFlow: [],
       goals: [],
-      dataGaps: [
+      longTermSignals: [
         {
-          label: "Investment contributions vs market growth",
-          detail: "Add investment account types or contribution tracking to split deposits from returns.",
+          label: "Contributions vs tracked growth",
+          value: formatCurrency(0),
+          detail: "No tracked savings activity yet",
+          info: "Compares transfers into savings accounts with income or interest posted directly to savings accounts.",
         },
         {
           label: "Inflation-adjusted growth",
-          detail: "Add an inflation data source or manual inflation rate to calculate real growth.",
+          value: formatCurrency(0),
+          detail: "Estimated using 3% annual inflation",
+          info: "Estimates real tracked account growth by reducing nominal growth with a fixed annual inflation assumption.",
+        },
+        {
+          label: "Debt payoff pace",
+          value: "No debt",
+          detail: "Based on current credit debt and budgeted repayments",
+          info: "Estimates how long tracked credit debt would take to clear at the current budgeted repayment level, before interest.",
         },
       ],
       stats: {
@@ -468,6 +482,9 @@ export async function getInsightsData(): Promise<InsightsData> {
     },
   });
   const typedTransactions: InsightTransaction[] = transactions;
+  const accountTypeById = new Map(
+    typedAccounts.map((account) => [account.id, account.type]),
+  );
 
   const series: InsightSeriesPoint[] = [];
 
@@ -562,6 +579,37 @@ export async function getInsightsData(): Promise<InsightsData> {
 
     return isDebtPayment ? sum + item.amount.toNumber() : sum;
   }, 0);
+  const trackedContributions = typedTransactions.reduce((sum, transaction) => {
+    const isSavingsTransfer =
+      transaction.type === "transfer" &&
+      transaction.transferAccountId !== null &&
+      accountTypeById.get(transaction.transferAccountId) === "savings";
+
+    return isSavingsTransfer ? sum + transaction.amount.toNumber() : sum;
+  }, 0);
+  const trackedGrowth = typedTransactions.reduce((sum, transaction) => {
+    const isSavingsIncome =
+      transaction.type === "income" &&
+      accountTypeById.get(transaction.accountId) === "savings";
+
+    return isSavingsIncome ? sum + transaction.amount.toNumber() : sum;
+  }, 0);
+  const rangeMonths = Math.max(
+    getMonthsBetween(buckets[0].start, buckets[buckets.length - 1].start),
+    1,
+  );
+  const inflationFactor = Math.pow(
+    1 + ASSUMED_ANNUAL_INFLATION_RATE,
+    rangeMonths / 12,
+  );
+  const nominalTrackedGrowth = latestPoint.netWorth - firstPoint.netWorth;
+  const inflationAdjustedGrowth =
+    (latestPoint.netWorth - firstPoint.netWorth * inflationFactor) /
+    inflationFactor;
+  const payoffMonths =
+    latestPoint.creditDebt > 0 && debtPayments > 0
+      ? Math.ceil(latestPoint.creditDebt / debtPayments)
+      : null;
   const latestBucket = buckets[buckets.length - 1];
   const latestOutgoingTransactions = typedTransactions.filter(
     (transaction) =>
@@ -677,18 +725,33 @@ export async function getInsightsData(): Promise<InsightsData> {
     allocation,
     categoryFlow,
     goals: goalProgress,
-    dataGaps: [
+    longTermSignals: [
       {
-        label: "Investment contributions vs market growth",
-        detail: "The tracked account model has cash, savings, and credit only, so returns cannot be separated from contributions yet.",
+        label: "Contributions vs tracked growth",
+        value: `${formatCurrency(trackedContributions)} / ${formatCurrency(
+          trackedGrowth,
+        )}`,
+        detail: "Savings transfers vs savings income or interest",
+        info: "This uses tracked savings activity as a practical stand-in for contribution analysis. Investment market returns need dedicated investment account data.",
       },
       {
         label: "Inflation-adjusted growth",
-        detail: "Nominal tracked account growth is shown above. Real growth needs an inflation rate or CPI feed to adjust this trend.",
+        value: formatCurrency(inflationAdjustedGrowth),
+        detail: `${formatCurrency(nominalTrackedGrowth)} nominal, using 3% annual inflation`,
+        info: "This estimates real tracked account growth with a fixed 3% annual inflation assumption until a CPI feed or manual inflation setting exists.",
       },
       {
-        label: "Debt interest rates",
-        detail: "Total debt and budgeted payments are shown, but interest-rate tracking needs a field on debt accounts.",
+        label: "Debt payoff pace",
+        value: payoffMonths === null ? "No active payoff" : `${payoffMonths} months`,
+        detail:
+          latestPoint.creditDebt <= 0
+            ? "No tracked credit debt"
+            : debtPayments > 0
+              ? `${formatCurrency(latestPoint.creditDebt)} debt at ${formatCurrency(
+                  debtPayments,
+                )}/month`
+              : "Add a debt repayment budget to estimate pace",
+        info: "Estimates payoff time from current tracked credit debt and budgeted debt repayments. It does not include interest because account interest rates are not stored yet.",
       },
     ],
     stats: {

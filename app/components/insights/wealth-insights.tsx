@@ -472,18 +472,14 @@ export function WealthInsights({ insights }: { insights: InsightsData }) {
               detail="Largest tracked net worth gain"
               info="The strongest single month of tracked net worth growth in the chart range."
             />
-          </div>
-          <div className="mt-4 grid gap-3">
-            {insights.dataGaps.map((gap) => (
-              <div
-                key={gap.label}
-                className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-4"
-              >
-                <p className="text-sm font-semibold text-zinc-950">{gap.label}</p>
-                <p className="mt-1 text-sm leading-6 text-zinc-500">
-                  {gap.detail}
-                </p>
-              </div>
+            {insights.longTermSignals.map((signal) => (
+              <InsightStatCard
+                key={signal.label}
+                label={signal.label}
+                value={signal.value}
+                detail={signal.detail}
+                info={signal.info}
+              />
             ))}
           </div>
         </div>
