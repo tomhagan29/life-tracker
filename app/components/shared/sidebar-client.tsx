@@ -35,6 +35,7 @@ type SidebarClientProps = {
 
 const navigationItems = [
   { label: "Overview", href: "/" },
+  { label: "Insights", href: "/insights" },
   { label: "Accounts", href: "/accounts" },
   { label: "Budget", href: "/budget" },
   { label: "Habits", href: "/habits" },

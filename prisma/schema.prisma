@@ -23,6 +23,12 @@ enum AccountType {
   credit
 }
 
+enum TransactionType {
+  income
+  outgoing
+  transfer
+}
+
 model FinanceCategory {
   id           Int           @id @default(autoincrement())
   name         String        @unique
@@ -58,6 +64,7 @@ model Account {
 model Transaction {
   id                Int              @id @default(autoincrement())
   date              DateTime         @default(now())
+  type              TransactionType
   amount            Decimal
   category          FinanceCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   categoryId        Int?
@@ -69,6 +76,7 @@ model Transaction {
   @@index([accountId])
   @@index([categoryId])
   @@index([date])
+  @@index([type])
   @@index([transferAccountId])
 }
 

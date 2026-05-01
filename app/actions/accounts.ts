@@ -56,6 +56,12 @@ function getAccountActionError(error: unknown) {
   return "Something went wrong. Please try again.";
 }
 
+function revalidateAccountPaths() {
+  revalidatePath("/");
+  revalidatePath("/accounts");
+  revalidatePath("/insights");
+}
+
 export async function createAccount(
   formData: FormData,
 ): Promise<AccountActionState> {
@@ -78,7 +84,7 @@ export async function createAccount(
       },
     });
 
-    revalidatePath("/accounts");
+    revalidateAccountPaths();
     return { ok: true };
   } catch (error) {
     return { ok: false, message: getAccountActionError(error) };
@@ -114,7 +120,7 @@ export async function updateAccount(
       },
     });
 
-    revalidatePath("/accounts");
+    revalidateAccountPaths();
     return { ok: true };
   } catch (error) {
     return { ok: false, message: getAccountActionError(error) };
@@ -127,7 +133,7 @@ export async function deleteAccount(id: number): Promise<AccountActionState> {
       where: { id },
     });
 
-    revalidatePath("/accounts");
+    revalidateAccountPaths();
     return { ok: true };
   } catch (error) {
     return { ok: false, message: getAccountActionError(error) };

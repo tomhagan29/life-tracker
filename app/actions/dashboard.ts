@@ -501,18 +501,18 @@ export async function getDashboardData(): Promise<DashboardData> {
     (transaction) => transaction.date >= monthStart && transaction.date < nextMonth,
   );
   const monthlyIncome = monthTransactions.reduce((sum, transaction) => {
-    if (transaction.transferAccountId !== null) {
+    if (transaction.type !== "income") {
       return sum;
     }
 
-    return transaction.amount.gt(0) ? sum.plus(transaction.amount) : sum;
+    return sum.plus(transaction.amount.abs());
   }, new Prisma.Decimal(0));
   const monthlyOutgoing = monthTransactions.reduce((sum, transaction) => {
-    if (transaction.transferAccountId !== null) {
+    if (transaction.type !== "outgoing") {
       return sum;
     }
 
-    return transaction.amount.lt(0) ? sum.plus(transaction.amount.abs()) : sum;
+    return sum.plus(transaction.amount.abs());
   }, new Prisma.Decimal(0));
   const cashFlow = monthlyIncome.minus(monthlyOutgoing);
 
@@ -594,20 +594,18 @@ export async function getDashboardData(): Promise<DashboardData> {
           transaction.date >= bucket.start && transaction.date < bucket.end,
       );
       const income = bucketTransactions.reduce((sum, transaction) => {
-        if (transaction.transferAccountId !== null) {
+        if (transaction.type !== "income") {
           return sum;
         }
 
-        const amount = transaction.amount.toNumber();
-        return amount > 0 ? sum + amount : sum;
+        return sum + transaction.amount.abs().toNumber();
       }, 0);
       const outgoing = bucketTransactions.reduce((sum, transaction) => {
-        if (transaction.transferAccountId !== null) {
+        if (transaction.type !== "outgoing") {
           return sum;
         }
 
-        const amount = transaction.amount.toNumber();
-        return amount < 0 ? sum + Math.abs(amount) : sum;
+        return sum + transaction.amount.abs().toNumber();
       }, 0);
 
       return {
@@ -674,7 +672,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   );
 
   const recentTransactions = transactions.slice(0, 6).map((transaction) => {
-    const isTransfer = transaction.transferAccountId !== null;
+    const isTransfer = transaction.type === "transfer";
     const amount = formatDetailedCurrency(Math.abs(transaction.amount.toNumber()));
 
     if (isTransfer) {

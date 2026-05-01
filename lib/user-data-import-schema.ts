@@ -1,4 +1,8 @@
-import { AccountType, GoalType } from "@/app/generated/prisma/enums";
+import {
+  AccountType,
+  GoalType,
+  TransactionType,
+} from "@/app/generated/prisma/enums";
 import { MAX_STRING_FIELD_LENGTH } from "@/lib/constants";
 import { z } from "zod";
 
@@ -40,6 +44,7 @@ export const importDataSchema = z.object({
       z.object({
         id: z.number().int().positive(),
         date: z.string().datetime(),
+        type: z.enum(TransactionType).optional(),
         amount: decimalStringSchema,
         categoryId: nullablePositiveIdSchema,
         accountId: z.number().int().positive(),

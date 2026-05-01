@@ -12,6 +12,7 @@ export type UserDataActionState = {
 
 function revalidateUserDataPaths() {
   revalidatePath("/");
+  revalidatePath("/insights");
   revalidatePath("/accounts");
   revalidatePath("/budget");
   revalidatePath("/goals");
@@ -25,6 +26,22 @@ function toDecimal(value: string | null) {
 
 function toDate(value: string | null) {
   return value === null ? null : new Date(value);
+}
+
+function getTransactionType(transaction: {
+  type?: "income" | "outgoing" | "transfer";
+  amount: string;
+  transferAccountId?: number | null;
+}) {
+  if (transaction.type) {
+    return transaction.type;
+  }
+
+  if (transaction.transferAccountId) {
+    return "transfer";
+  }
+
+  return new Prisma.Decimal(transaction.amount).gte(0) ? "income" : "outgoing";
 }
 
 async function deleteAllData(tx: Prisma.TransactionClient) {
@@ -187,6 +204,7 @@ export async function importUserData(
         data: data.transactions.map((transaction) => ({
           ...transaction,
           date: new Date(transaction.date),
+          type: getTransactionType(transaction),
           amount: new Prisma.Decimal(transaction.amount),
           categoryId: transaction.categoryId ?? null,
           transferAccountId: transaction.transferAccountId ?? null,

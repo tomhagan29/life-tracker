@@ -1,6 +1,6 @@
 "use server";
 
-import { Prisma } from "@/app/generated/prisma/client";
+import { Prisma, TransactionType } from "@/app/generated/prisma/client";
 import { currencySchema } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -16,7 +16,7 @@ export type DailyLogOptions = {
   categories: { id: number; name: string }[];
   transactions: {
     id: number;
-    direction: "income" | "outgoing" | "transfer";
+    direction: TransactionType;
     amount: string;
     accountId: number;
     categoryId: number | null;
@@ -41,7 +41,7 @@ const transactionDraftSchema = z
     amount: currencySchema.refine((amount) => amount > 0, {
       message: "Transaction amount must be greater than zero",
     }),
-    direction: z.enum(["income", "outgoing", "transfer"]),
+    direction: z.enum(TransactionType),
     accountId: z.coerce.number().int().positive("Account is required"),
     categoryId: optionalPositiveIdSchema,
     transferAccountId: optionalPositiveIdSchema,
@@ -160,6 +160,7 @@ function getDailyLogActionError(error: unknown) {
 
 function revalidateDailyLogPaths() {
   revalidatePath("/");
+  revalidatePath("/insights");
   revalidatePath("/accounts");
   revalidatePath("/budget");
   revalidatePath("/goals");
@@ -282,6 +283,7 @@ export async function getDailyLogOptions(date: string): Promise<DailyLogOptions>
         select: {
           id: true,
           amount: true,
+          type: true,
           accountId: true,
           categoryId: true,
           transferAccountId: true,
@@ -328,13 +330,10 @@ export async function getDailyLogOptions(date: string): Promise<DailyLogOptions>
     accounts,
     categories,
     transactions: transactions.map((transaction) => {
-      const amount = transaction.amount.toNumber();
-      const isTransfer = transaction.transferAccountId !== null;
-
       return {
         id: transaction.id,
-        direction: isTransfer ? "transfer" : amount >= 0 ? "income" : "outgoing",
-        amount: Math.abs(amount).toString(),
+        direction: transaction.type,
+        amount: Math.abs(transaction.amount.toNumber()).toString(),
         accountId: transaction.accountId,
         categoryId: transaction.categoryId,
         transferAccountId: transaction.transferAccountId,
@@ -466,6 +465,7 @@ export async function submitDailyLog(
           await tx.transaction.create({
             data: {
               date,
+              type: "transfer",
               amount,
               accountId: transaction.accountId,
               transferAccountId,
@@ -490,6 +490,7 @@ export async function submitDailyLog(
         await tx.transaction.create({
           data: {
             date,
+            type: transaction.direction,
             amount,
             accountId: transaction.accountId,
             categoryId: transaction.categoryId,
