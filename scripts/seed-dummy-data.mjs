@@ -6,6 +6,7 @@ import Database from "better-sqlite3";
 const DEMO_ACCOUNTS = [
   { key: "current", name: "Demo Current Account", type: "current" },
   { key: "savings", name: "Demo Emergency Savings", type: "savings" },
+  { key: "investment", name: "Demo Stocks ISA", type: "investment" },
   { key: "credit", name: "Demo Credit Card", type: "credit" },
 ];
 
@@ -21,6 +22,7 @@ const FINANCE_CATEGORIES = [
   "Travel",
   "Health",
   "Savings",
+  "Interest",
 ];
 
 const HABIT_CATEGORIES = ["Health", "Learning", "Home"];
@@ -28,6 +30,7 @@ const HABIT_CATEGORIES = ["Health", "Learning", "Home"];
 const STARTING_BALANCES = {
   current: 1800,
   savings: 4200,
+  investment: 12000,
   credit: -3400,
 };
 
@@ -216,6 +219,8 @@ function deleteExistingDemoData(db) {
 function buildTransactions(accountIds, categoryIds) {
   const balances = { ...STARTING_BALANCES };
   const transactions = [];
+  const investmentSnapshots = [];
+  let investmentValue = STARTING_BALANCES.investment;
 
   function addTransaction(transaction) {
     transactions.push(transaction);
@@ -230,9 +235,24 @@ function buildTransactions(accountIds, categoryIds) {
   }
 
   getDemoMonths().forEach((month, index) => {
+    if (index > 0) {
+      investmentValue =
+        balances.investment + 95 + index * 18 + (index % 4 === 0 ? -180 : 40);
+    }
+
+    balances.investment = investmentValue;
+    investmentSnapshots.push({
+      date: new Date(
+        Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), 1, 0),
+      ).toISOString(),
+      accountId: accountIds.investment,
+      value: investmentValue,
+    });
+
     const salary = 3150 + index * 18 + (index >= 12 ? 180 : 0);
     const savingsTransfer = 360 + Math.min(index * 18, 340);
     const savingsGrowth = 12 + index * 2.5;
+    const investmentContribution = 240 + Math.min(index * 12, 180);
     const discretionary = 310 + ((index * 37) % 160);
     const groceries = 430 + ((index * 23) % 90);
     const travel = index === 14 ? 780 : index === 8 ? 240 : 0;
@@ -263,7 +283,14 @@ function buildTransactions(accountIds, categoryIds) {
       type: "income",
       amount: savingsGrowth,
       account: "savings",
-      categoryId: categoryIds.Savings,
+      categoryId: categoryIds.Interest,
+    });
+    addTransaction({
+      date: dateForMonth(month, 4),
+      type: "transfer",
+      amount: investmentContribution,
+      from: "current",
+      to: "investment",
     });
     addTransaction({
       date: dateForMonth(month, 5),
@@ -331,6 +358,7 @@ function buildTransactions(accountIds, categoryIds) {
 
   return {
     balances,
+    investmentSnapshots,
     transactions: transactions.map((transaction) => {
       if (transaction.type === "transfer") {
         return {
@@ -373,7 +401,10 @@ function seedAccounts(db, categoryIds) {
     accountIds[account.key] = Number(result.lastInsertRowid);
   }
 
-  const { balances, transactions } = buildTransactions(accountIds, categoryIds);
+  const { balances, investmentSnapshots, transactions } = buildTransactions(
+    accountIds,
+    categoryIds,
+  );
   const updateBalance = db.prepare(
     `UPDATE "Account" SET "balance" = ? WHERE "id" = ?`,
   );
@@ -400,7 +431,27 @@ function seedAccounts(db, categoryIds) {
     );
   }
 
-  return { accountIds, balances, transactionCount: transactions.length };
+  const insertInvestmentSnapshot = db.prepare(
+    `
+      INSERT INTO "InvestmentSnapshot" ("date", "value", "accountId")
+      VALUES (?, ?, ?)
+    `,
+  );
+
+  for (const snapshot of investmentSnapshots) {
+    insertInvestmentSnapshot.run(
+      snapshot.date,
+      money(snapshot.value),
+      snapshot.accountId,
+    );
+  }
+
+  return {
+    accountIds,
+    balances,
+    investmentSnapshotCount: investmentSnapshots.length,
+    transactionCount: transactions.length,
+  };
 }
 
 function seedBudgets(db, accountIds, categoryIds) {
@@ -574,6 +625,11 @@ function main() {
         db,
         categoryIds,
       );
+      const snapshotCount = db
+        .prepare(
+          `SELECT COUNT(*) AS count FROM "InvestmentSnapshot" WHERE "accountId" = ?`,
+        )
+        .get(accountIds.investment).count;
       const budgetCount = seedBudgets(db, accountIds, categoryIds);
       const goalCount = seedGoals(db);
       const habitCount = seedHabits(db);
@@ -583,6 +639,7 @@ function main() {
         budgetCount,
         goalCount,
         habitCount,
+        snapshotCount,
         transactionCount,
       };
     });
@@ -591,13 +648,16 @@ function main() {
 
     console.log(`Seeded dummy data in ${databasePath}`);
     console.log(`Transactions: ${result.transactionCount}`);
+    console.log(`Investment snapshots: ${result.snapshotCount}`);
     console.log(`Budgets: ${result.budgetCount}`);
     console.log(`Goals: ${result.goalCount}`);
     console.log(`Habits: ${result.habitCount}`);
     console.log(
       `Ending balances: current ${money(result.balances.current)}, savings ${money(
         result.balances.savings,
-      )}, credit ${money(result.balances.credit)}`,
+      )}, investment ${money(result.balances.investment)}, credit ${money(
+        result.balances.credit,
+      )}`,
     );
   } finally {
     db.close();

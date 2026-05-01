@@ -48,6 +48,7 @@ async function deleteAllData(tx: Prisma.TransactionClient) {
   await tx.checkInComment.deleteMany();
   await tx.habitCompletion.deleteMany();
   await tx.transaction.deleteMany();
+  await tx.investmentSnapshot.deleteMany();
   await tx.budgetItem.deleteMany();
   await tx.habit.deleteMany();
   await tx.goalMilestone.deleteMany();
@@ -82,6 +83,7 @@ export async function exportUserData() {
     habitCategories,
     accounts,
     transactions,
+    investmentSnapshots,
     habits,
     habitCompletions,
     budgetItems,
@@ -94,6 +96,7 @@ export async function exportUserData() {
     prisma.habitCategory.findMany({ orderBy: { id: "asc" } }),
     prisma.account.findMany({ orderBy: { id: "asc" } }),
     prisma.transaction.findMany({ orderBy: { id: "asc" } }),
+    prisma.investmentSnapshot.findMany({ orderBy: { id: "asc" } }),
     prisma.habit.findMany({ orderBy: { id: "asc" } }),
     prisma.habitCompletion.findMany({ orderBy: { id: "asc" } }),
     prisma.budgetItem.findMany({ orderBy: { id: "asc" } }),
@@ -117,6 +120,11 @@ export async function exportUserData() {
         ...transaction,
         date: transaction.date.toISOString(),
         amount: transaction.amount.toString(),
+      })),
+      investmentSnapshots: investmentSnapshots.map((snapshot) => ({
+        ...snapshot,
+        date: snapshot.date.toISOString(),
+        value: snapshot.value.toString(),
       })),
       habits,
       habitCompletions: habitCompletions.map((habitCompletion) => ({
@@ -208,6 +216,13 @@ export async function importUserData(
           amount: new Prisma.Decimal(transaction.amount),
           categoryId: transaction.categoryId ?? null,
           transferAccountId: transaction.transferAccountId ?? null,
+        })),
+      });
+      await tx.investmentSnapshot.createMany({
+        data: data.investmentSnapshots.map((snapshot) => ({
+          ...snapshot,
+          date: new Date(snapshot.date),
+          value: new Prisma.Decimal(snapshot.value),
         })),
       });
       await tx.habit.createMany({ data: data.habits });

@@ -12,7 +12,7 @@ export type DailyLogActionState = {
 };
 
 export type DailyLogOptions = {
-  accounts: { id: number; name: string }[];
+  accounts: { id: number; name: string; type: string }[];
   categories: { id: number; name: string }[];
   transactions: {
     id: number;
@@ -29,6 +29,11 @@ export type DailyLogOptions = {
     schedule: string;
   }[];
   completedHabitIds: number[];
+  investmentSnapshots: {
+    accountId: number;
+    name: string;
+    value: string;
+  }[];
 };
 
 const optionalPositiveIdSchema = z.preprocess(
@@ -82,6 +87,27 @@ const dailyLogSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a valid date"),
   transactions: z.array(transactionDraftSchema),
   habitIds: z.array(z.coerce.number().int().positive()),
+  investmentSnapshots: z.array(
+    z.object({
+      accountId: z.coerce.number().int().positive(),
+      value: z.string().trim(),
+    }),
+  ),
+}).superRefine((log, context) => {
+  for (const [index, snapshot] of log.investmentSnapshots.entries()) {
+    if (snapshot.value === "") {
+      continue;
+    }
+
+    const parsed = currencySchema.safeParse(snapshot.value);
+    if (!parsed.success || parsed.data < 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["investmentSnapshots", index, "value"],
+        message: "Investment snapshot values must be zero or greater",
+      });
+    }
+  }
 });
 
 function parseJsonField<T>(value: FormDataEntryValue | null, fallback: T) {
@@ -101,6 +127,7 @@ function parseDailyLogForm(formData: FormData) {
     date: formData.get("date"),
     transactions: parseJsonField(formData.get("transactions"), []),
     habitIds: parseJsonField(formData.get("habitIds"), []),
+    investmentSnapshots: parseJsonField(formData.get("investmentSnapshots"), []),
   });
 }
 
@@ -114,6 +141,14 @@ function getLogDateRange(date: string) {
   end.setUTCDate(end.getUTCDate() + 1);
 
   return { start, end };
+}
+
+function isFirstOfMonth(date: string) {
+  return date.endsWith("-01");
+}
+
+function getInvestmentSnapshotDate(date: string) {
+  return new Date(`${date}T00:00:00Z`);
 }
 
 function getLogMonthRange(date: string) {
@@ -244,6 +279,57 @@ async function revertTransactionBalance(
   });
 }
 
+async function refreshInvestmentAccountBalance(
+  tx: Prisma.TransactionClient,
+  accountId: number,
+) {
+  const latestSnapshot = await tx.investmentSnapshot.findFirst({
+    where: { accountId },
+    orderBy: { date: "desc" },
+    select: { date: true, value: true },
+  });
+
+  if (!latestSnapshot) {
+    return;
+  }
+
+  const transactions = await tx.transaction.findMany({
+    where: {
+      date: { gte: latestSnapshot.date },
+      OR: [{ accountId }, { transferAccountId: accountId }],
+    },
+    select: {
+      amount: true,
+      accountId: true,
+      transferAccountId: true,
+    },
+  });
+  const balance = transactions.reduce((sum, transaction) => {
+    if (transaction.transferAccountId) {
+      if (transaction.transferAccountId === accountId) {
+        return sum.plus(transaction.amount.abs());
+      }
+
+      if (transaction.accountId === accountId) {
+        return sum.minus(transaction.amount.abs());
+      }
+
+      return sum;
+    }
+
+    if (transaction.accountId === accountId) {
+      return sum.plus(transaction.amount);
+    }
+
+    return sum;
+  }, latestSnapshot.value);
+
+  await tx.account.update({
+    where: { id: accountId },
+    data: { balance },
+  });
+}
+
 export async function getDailyLogOptions(date: string): Promise<DailyLogOptions> {
   const parsedDate = z
     .string()
@@ -266,7 +352,7 @@ export async function getDailyLogOptions(date: string): Promise<DailyLogOptions>
     await Promise.all([
       prisma.account.findMany({
         orderBy: { name: "asc" },
-        select: { id: true, name: true },
+        select: { id: true, name: true, type: true },
       }),
       prisma.financeCategory.findMany({
         orderBy: { name: "asc" },
@@ -318,6 +404,28 @@ export async function getDailyLogOptions(date: string): Promise<DailyLogOptions>
         select: { habitId: true },
       }),
     ]);
+  const investmentAccounts = accounts.filter(
+    (account) => account.type === "investment",
+  );
+  const investmentSnapshotRows =
+    isFirstOfMonth(logDate) && investmentAccounts.length > 0
+      ? await prisma.investmentSnapshot.findMany({
+          where: {
+            accountId: { in: investmentAccounts.map((account) => account.id) },
+            date: {
+              gte: dateRange.start,
+              lt: dateRange.end,
+            },
+          },
+          select: { accountId: true, value: true },
+        })
+      : [];
+  const investmentSnapshotValueByAccount = new Map(
+    investmentSnapshotRows.map((snapshot) => [
+      snapshot.accountId,
+      snapshot.value.toFixed(2),
+    ]),
+  );
 
   const dayCompletedHabitIds = new Set(
     dayHabitCompletions.map((habitCompletion) => habitCompletion.habitId),
@@ -352,6 +460,13 @@ export async function getDailyLogOptions(date: string): Promise<DailyLogOptions>
           : monthCompletedHabitIds.has(habit.id),
       )
       .map((habit) => habit.id),
+    investmentSnapshots: isFirstOfMonth(logDate)
+      ? investmentAccounts.map((account) => ({
+          accountId: account.id,
+          name: account.name,
+          value: investmentSnapshotValueByAccount.get(account.id) ?? "",
+        }))
+      : [],
   };
 }
 
@@ -382,6 +497,10 @@ export async function submitDailyLog(
           frequency: true,
         },
       });
+      const investmentAccounts = await tx.account.findMany({
+        where: { type: "investment" },
+        select: { id: true },
+      });
       const existingTransactions = await tx.transaction.findMany({
         where: {
           date: {
@@ -405,6 +524,10 @@ export async function submitDailyLog(
         select: { habitId: true, date: true },
       });
       const habitById = new Map(habits.map((habit) => [habit.id, habit]));
+      const investmentAccountIds = new Set(
+        investmentAccounts.map((account) => account.id),
+      );
+      const touchedInvestmentAccountIds = new Set<number>();
       const dayExistingHabitIds = new Set(
         existingHabitCompletions
           .filter(
@@ -441,6 +564,15 @@ export async function submitDailyLog(
 
       for (const transaction of existingTransactions) {
         await revertTransactionBalance(tx, transaction);
+        if (investmentAccountIds.has(transaction.accountId)) {
+          touchedInvestmentAccountIds.add(transaction.accountId);
+        }
+        if (
+          transaction.transferAccountId &&
+          investmentAccountIds.has(transaction.transferAccountId)
+        ) {
+          touchedInvestmentAccountIds.add(transaction.transferAccountId);
+        }
       }
 
       await tx.transaction.deleteMany({
@@ -477,6 +609,12 @@ export async function submitDailyLog(
             accountId: transaction.accountId,
             transferAccountId,
           });
+          if (investmentAccountIds.has(transaction.accountId)) {
+            touchedInvestmentAccountIds.add(transaction.accountId);
+          }
+          if (investmentAccountIds.has(transferAccountId)) {
+            touchedInvestmentAccountIds.add(transferAccountId);
+          }
 
           continue;
         }
@@ -502,6 +640,52 @@ export async function submitDailyLog(
           accountId: transaction.accountId,
           transferAccountId: null,
         });
+        if (investmentAccountIds.has(transaction.accountId)) {
+          touchedInvestmentAccountIds.add(transaction.accountId);
+        }
+      }
+
+      if (isFirstOfMonth(parsed.data.date)) {
+        const snapshotDate = getInvestmentSnapshotDate(parsed.data.date);
+
+        for (const snapshot of parsed.data.investmentSnapshots) {
+          if (!investmentAccountIds.has(snapshot.accountId)) {
+            continue;
+          }
+
+          touchedInvestmentAccountIds.add(snapshot.accountId);
+
+          if (snapshot.value === "") {
+            await tx.investmentSnapshot.deleteMany({
+              where: {
+                accountId: snapshot.accountId,
+                date: snapshotDate,
+              },
+            });
+            continue;
+          }
+
+          await tx.investmentSnapshot.upsert({
+            where: {
+              accountId_date: {
+                accountId: snapshot.accountId,
+                date: snapshotDate,
+              },
+            },
+            create: {
+              accountId: snapshot.accountId,
+              date: snapshotDate,
+              value: new Prisma.Decimal(snapshot.value),
+            },
+            update: {
+              value: new Prisma.Decimal(snapshot.value),
+            },
+          });
+        }
+      }
+
+      for (const accountId of touchedInvestmentAccountIds) {
+        await refreshInvestmentAccountBalance(tx, accountId);
       }
 
       if (habitIdsToAdd.length > 0) {

@@ -21,6 +21,7 @@ enum AccountType {
   current
   savings
   credit
+  investment
 }
 
 enum TransactionType {
@@ -52,13 +53,26 @@ model CheckInComment {
 }
 
 model Account {
-  id                Int           @id @default(autoincrement())
-  name              String        @unique
-  balance           Decimal
-  type              AccountType
-  transactions      Transaction[] @relation("AccountTransactions")
-  incomingTransfers Transaction[] @relation("TransferDestination")
-  budgetItems       BudgetItem[]
+  id                  Int                  @id @default(autoincrement())
+  name                String               @unique
+  balance             Decimal
+  type                AccountType
+  transactions        Transaction[]        @relation("AccountTransactions")
+  incomingTransfers   Transaction[]        @relation("TransferDestination")
+  budgetItems         BudgetItem[]
+  investmentSnapshots InvestmentSnapshot[]
+}
+
+model InvestmentSnapshot {
+  id        Int      @id @default(autoincrement())
+  date      DateTime
+  value     Decimal
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId Int
+
+  @@unique([accountId, date])
+  @@index([accountId])
+  @@index([date])
 }
 
 model Transaction {

@@ -11,6 +11,7 @@ const accountTypeLabel = {
   current: "Current",
   savings: "Savings",
   credit: "Credit",
+  investment: "Investment",
 };
 
 export default async function AccountsDisplay() {

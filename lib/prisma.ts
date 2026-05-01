@@ -18,7 +18,9 @@ function createPrismaClient() {
 }
 
 function hasCurrentDelegates(client: PrismaClient | undefined): client is PrismaClient {
-  return Boolean(client && "habitCompletion" in client);
+  return Boolean(
+    client && "habitCompletion" in client && "investmentSnapshot" in client,
+  );
 }
 
 export const prisma =

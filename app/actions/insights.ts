@@ -14,6 +14,7 @@ export type InsightSeriesPoint = {
   label: string;
   current: number;
   savings: number;
+  investment: number;
   creditDebt: number;
   netWorth: number;
   income: number;
@@ -36,7 +37,7 @@ export type InsightAllocation = {
   label: string;
   value: string;
   percent: number;
-  tone: "emerald" | "sky" | "rose";
+  tone: "emerald" | "sky" | "violet" | "rose";
 };
 
 export type InsightCategoryFlow = {
@@ -162,6 +163,12 @@ type InsightTransaction = {
   category: { name: string } | null;
 };
 
+type InsightInvestmentSnapshot = {
+  accountId: number;
+  date: Date;
+  value: Prisma.Decimal;
+};
+
 function formatCurrency(amount: number) {
   return currencyFormatter.format(amount);
 }
@@ -204,6 +211,7 @@ function getMonthBuckets(startDate: Date, today: Date) {
 function getRawBalancesAt(
   accounts: AccountBalance[],
   transactions: InsightTransaction[],
+  investmentSnapshots: InsightInvestmentSnapshot[],
   cutoff: Date,
 ) {
   const balances = new Map(
@@ -230,6 +238,45 @@ function getRawBalancesAt(
     balances.set(transaction.accountId, sourceBalance - amount);
   }
 
+  const investmentAccounts = accounts.filter(
+    (account) => account.type === "investment",
+  );
+  for (const account of investmentAccounts) {
+    const latestSnapshot = investmentSnapshots
+      .filter(
+        (snapshot) => snapshot.accountId === account.id && snapshot.date < cutoff,
+      )
+      .sort((a, b) => b.date.getTime() - a.date.getTime())[0];
+
+    if (!latestSnapshot) {
+      continue;
+    }
+
+    let balance = latestSnapshot.value.toNumber();
+    for (const transaction of transactions) {
+      if (transaction.date < latestSnapshot.date || transaction.date >= cutoff) {
+        continue;
+      }
+
+      const amount = Math.abs(transaction.amount.toNumber());
+
+      if (transaction.type === "transfer") {
+        if (transaction.transferAccountId === account.id) {
+          balance += amount;
+        } else if (transaction.accountId === account.id) {
+          balance -= amount;
+        }
+        continue;
+      }
+
+      if (transaction.accountId === account.id) {
+        balance += transaction.amount.toNumber();
+      }
+    }
+
+    balances.set(account.id, balance);
+  }
+
   return balances;
 }
 
@@ -247,7 +294,9 @@ function getBalanceBreakdown(
         return breakdown;
       }
 
-      if (account.type === "savings") {
+      if (account.type === "investment") {
+        breakdown.investment += rawBalance;
+      } else if (account.type === "savings") {
         breakdown.savings += rawBalance;
       } else {
         breakdown.current += rawBalance;
@@ -256,7 +305,7 @@ function getBalanceBreakdown(
       breakdown.netWorth += rawBalance;
       return breakdown;
     },
-    { current: 0, savings: 0, creditDebt: 0, netWorth: 0 },
+    { current: 0, savings: 0, investment: 0, creditDebt: 0, netWorth: 0 },
   );
 }
 
@@ -378,12 +427,17 @@ function buildMilestones(
 export async function getInsightsData(): Promise<InsightsData> {
   const today = new Date();
   const currentMonthStart = getStartOfMonth(today);
-  const [accounts, firstTransaction, budgetItems, goals] = await Promise.all([
+  const [accounts, firstTransaction, firstSnapshot, budgetItems, goals] =
+    await Promise.all([
     prisma.account.findMany({
       orderBy: { id: "asc" },
       select: { id: true, type: true, balance: true },
     }),
     prisma.transaction.findFirst({
+      orderBy: { date: "asc" },
+      select: { date: true },
+    }),
+    prisma.investmentSnapshot.findFirst({
       orderBy: { date: "asc" },
       select: { date: true },
     }),
@@ -423,10 +477,16 @@ export async function getInsightsData(): Promise<InsightsData> {
       goals: [],
       longTermSignals: [
         {
-          label: "Contributions vs tracked growth",
+          label: "Investment contributions vs returns",
           value: formatCurrency(0),
-          detail: "No tracked savings activity yet",
-          info: "Compares transfers into savings accounts with income or interest posted directly to savings accounts.",
+          detail: "Add investment accounts and first-of-month snapshots",
+          info: "Compares net transfers into investment accounts with growth inferred from monthly valuation snapshots.",
+        },
+        {
+          label: "Interest earned",
+          value: formatCurrency(0),
+          detail: "No interest income logged yet",
+          info: "Sums income logged with an Interest category.",
         },
         {
           label: "Inflation-adjusted growth",
@@ -457,41 +517,61 @@ export async function getInsightsData(): Promise<InsightsData> {
     };
   }
 
-  const firstActivityMonth = firstTransaction
-    ? getStartOfMonth(firstTransaction.date)
+  const firstActivityDate =
+    firstTransaction && firstSnapshot
+      ? firstTransaction.date < firstSnapshot.date
+        ? firstTransaction.date
+        : firstSnapshot.date
+      : firstTransaction?.date ?? firstSnapshot?.date ?? null;
+  const firstActivityMonth = firstActivityDate
+    ? getStartOfMonth(firstActivityDate)
     : currentMonthStart;
   const rangeStart =
     firstActivityMonth > currentMonthStart
       ? currentMonthStart
       : firstActivityMonth;
   const buckets = getMonthBuckets(rangeStart, today);
-  const transactions = await prisma.transaction.findMany({
-    where: {
-      date: {
-        gte: rangeStart,
+  const [transactions, investmentSnapshots] = await Promise.all([
+    prisma.transaction.findMany({
+      where: {
+        date: {
+          gte: rangeStart,
+        },
       },
-    },
-    orderBy: { date: "asc" },
-    select: {
-      date: true,
-      amount: true,
-      type: true,
-      accountId: true,
-      transferAccountId: true,
-      category: { select: { name: true } },
-    },
-  });
+      orderBy: { date: "asc" },
+      select: {
+        date: true,
+        amount: true,
+        type: true,
+        accountId: true,
+        transferAccountId: true,
+        category: { select: { name: true } },
+      },
+    }),
+    prisma.investmentSnapshot.findMany({
+      where: {
+        date: {
+          lt: buckets[buckets.length - 1].end,
+        },
+      },
+      orderBy: { date: "asc" },
+      select: {
+        accountId: true,
+        date: true,
+        value: true,
+      },
+    }),
+  ]);
   const typedTransactions: InsightTransaction[] = transactions;
-  const accountTypeById = new Map(
-    typedAccounts.map((account) => [account.id, account.type]),
-  );
-
+  const typedInvestmentSnapshots: InsightInvestmentSnapshot[] =
+    investmentSnapshots;
   const series: InsightSeriesPoint[] = [];
 
   buckets.forEach((bucket, index) => {
     const balances = getRawBalancesAt(
       typedAccounts,
       typedTransactions,
+      typedInvestmentSnapshots,
       bucket.end,
     );
     const breakdown = getBalanceBreakdown(typedAccounts, balances);
@@ -521,6 +601,7 @@ export async function getInsightsData(): Promise<InsightsData> {
       label: bucket.label,
       current: breakdown.current,
       savings: breakdown.savings,
+      investment: breakdown.investment,
       creditDebt: breakdown.creditDebt,
       netWorth: breakdown.netWorth,
       income,
@@ -546,7 +627,9 @@ export async function getInsightsData(): Promise<InsightsData> {
   const averageSavingsRate = getAverageDefined(savingsRates);
   const latestCurrent = Math.max(latestPoint.current, 0);
   const latestSavings = Math.max(latestPoint.savings, 0);
-  const grossExposure = latestCurrent + latestSavings + latestPoint.creditDebt;
+  const latestInvestment = Math.max(latestPoint.investment, 0);
+  const grossExposure =
+    latestCurrent + latestSavings + latestInvestment + latestPoint.creditDebt;
   const liquidCash = latestCurrent + latestSavings;
   const budgetTotal = budgetItems.reduce(
     (sum, item) => sum + item.amount.toNumber(),
@@ -579,21 +662,68 @@ export async function getInsightsData(): Promise<InsightsData> {
 
     return isDebtPayment ? sum + item.amount.toNumber() : sum;
   }, 0);
-  const trackedContributions = typedTransactions.reduce((sum, transaction) => {
-    const isSavingsTransfer =
-      transaction.type === "transfer" &&
-      transaction.transferAccountId !== null &&
-      accountTypeById.get(transaction.transferAccountId) === "savings";
-
-    return isSavingsTransfer ? sum + transaction.amount.toNumber() : sum;
-  }, 0);
-  const trackedGrowth = typedTransactions.reduce((sum, transaction) => {
-    const isSavingsIncome =
+  const investmentAccountIds = new Set(
+    typedAccounts
+      .filter((account) => account.type === "investment")
+      .map((account) => account.id),
+  );
+  const interestEarned = typedTransactions.reduce((sum, transaction) => {
+    const isInterest =
       transaction.type === "income" &&
-      accountTypeById.get(transaction.accountId) === "savings";
+      transaction.category?.name.toLowerCase().includes("interest");
 
-    return isSavingsIncome ? sum + transaction.amount.toNumber() : sum;
+    return isInterest ? sum + transaction.amount.toNumber() : sum;
   }, 0);
+  const investmentSnapshotsByAccount = new Map<
+    number,
+    InsightInvestmentSnapshot[]
+  >();
+  for (const snapshot of typedInvestmentSnapshots) {
+    const existing = investmentSnapshotsByAccount.get(snapshot.accountId) ?? [];
+    existing.push(snapshot);
+    investmentSnapshotsByAccount.set(snapshot.accountId, existing);
+  }
+  let investmentContributions = 0;
+  let investmentReturns = 0;
+  let investmentReturnIntervals = 0;
+  for (const snapshots of investmentSnapshotsByAccount.values()) {
+    const orderedSnapshots = snapshots.sort(
+      (a, b) => a.date.getTime() - b.date.getTime(),
+    );
+
+    for (let index = 1; index < orderedSnapshots.length; index += 1) {
+      const startingSnapshot = orderedSnapshots[index - 1];
+      const endingSnapshot = orderedSnapshots[index];
+      const netContributions = typedTransactions.reduce((sum, transaction) => {
+        if (
+          transaction.type !== "transfer" ||
+          transaction.date < startingSnapshot.date ||
+          transaction.date >= endingSnapshot.date
+        ) {
+          return sum;
+        }
+
+        const amount = Math.abs(transaction.amount.toNumber());
+
+        if (transaction.transferAccountId === endingSnapshot.accountId) {
+          return sum + amount;
+        }
+
+        if (transaction.accountId === endingSnapshot.accountId) {
+          return sum - amount;
+        }
+
+        return sum;
+      }, 0);
+
+      investmentContributions += netContributions;
+      investmentReturns +=
+        endingSnapshot.value.toNumber() -
+        startingSnapshot.value.toNumber() -
+        netContributions;
+      investmentReturnIntervals += 1;
+    }
+  }
   const rangeMonths = Math.max(
     getMonthsBetween(buckets[0].start, buckets[buckets.length - 1].start),
     1,
@@ -708,6 +838,15 @@ export async function getInsightsData(): Promise<InsightsData> {
       tone: "sky",
     },
     {
+      label: "Investments",
+      value: formatCurrency(latestPoint.investment),
+      percent:
+        grossExposure > 0
+          ? Math.round((latestInvestment / grossExposure) * 100)
+          : 0,
+      tone: "violet",
+    },
+    {
       label: "Credit debt",
       value: formatCurrency(latestPoint.creditDebt),
       percent:
@@ -727,12 +866,23 @@ export async function getInsightsData(): Promise<InsightsData> {
     goals: goalProgress,
     longTermSignals: [
       {
-        label: "Contributions vs tracked growth",
-        value: `${formatCurrency(trackedContributions)} / ${formatCurrency(
-          trackedGrowth,
+        label: "Investment contributions vs returns",
+        value: `${formatCurrency(investmentContributions)} / ${formatCurrency(
+          investmentReturns,
         )}`,
-        detail: "Savings transfers vs savings income or interest",
-        info: "This uses tracked savings activity as a practical stand-in for contribution analysis. Investment market returns need dedicated investment account data.",
+        detail:
+          investmentReturnIntervals > 0
+            ? "Net transfers vs inferred valuation change"
+            : investmentAccountIds.size > 0
+              ? "Add at least two monthly snapshots"
+              : "Add an investment account to track this",
+        info: "Uses monthly investment snapshots and transfers to estimate returns: ending value minus starting value minus net contributions.",
+      },
+      {
+        label: "Interest earned",
+        value: formatCurrency(interestEarned),
+        detail: "Income logged with an Interest category",
+        info: "Interest is tracked as ordinary income credited to an account, usually a savings account.",
       },
       {
         label: "Inflation-adjusted growth",

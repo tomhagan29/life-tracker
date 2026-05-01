@@ -9,7 +9,7 @@ import {
 } from "../../actions/accounts";
 import { Column, DataTable } from "../shared/data-table";
 
-type AccountType = "current" | "savings" | "credit";
+type AccountType = "current" | "savings" | "credit" | "investment";
 
 export type AccountRow = {
   id: number;
@@ -26,6 +26,7 @@ const accountTypes: { value: AccountType; label: string }[] = [
   { value: "current", label: "Current" },
   { value: "savings", label: "Savings" },
   { value: "credit", label: "Credit" },
+  { value: "investment", label: "Investment" },
 ];
 
 export function AccountsTable({ accounts }: { accounts: AccountRow[] }) {

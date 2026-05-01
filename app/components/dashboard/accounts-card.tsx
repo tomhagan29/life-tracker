@@ -4,6 +4,7 @@ const accountTone = {
   current: "bg-emerald-500",
   savings: "bg-sky-500",
   credit: "bg-rose-500",
+  investment: "bg-violet-500",
 };
 
 export function AccountsCard({ accounts }: { accounts: DashboardAccount[] }) {

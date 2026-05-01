@@ -51,6 +51,17 @@ export const importDataSchema = z.object({
         transferAccountId: nullablePositiveIdSchema,
       }),
     ),
+    investmentSnapshots: z
+      .array(
+        z.object({
+          id: z.number().int().positive(),
+          date: z.string().datetime(),
+          value: decimalStringSchema,
+          accountId: z.number().int().positive(),
+        }),
+      )
+      .optional()
+      .default([]),
     habits: z.array(
       z.object({
         id: z.number().int().positive(),

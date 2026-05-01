@@ -15,6 +15,7 @@ const chartModes: { value: InsightChartMode; label: string }[] = [
 const allocationTone = {
   emerald: "bg-emerald-500",
   sky: "bg-sky-500",
+  violet: "bg-violet-500",
   rose: "bg-rose-500",
 };
 
@@ -45,6 +46,7 @@ export function WealthInsights({ insights }: { insights: InsightsData }) {
         (point) =>
           Math.max(point.current, 0) +
           Math.max(point.savings, 0) +
+          Math.max(point.investment, 0) +
           point.creditDebt,
       ),
     );
@@ -161,11 +163,13 @@ export function WealthInsights({ insights }: { insights: InsightsData }) {
                 index % 3 === 0;
               const current = Math.max(point.current, 0);
               const savings = Math.max(point.savings, 0);
+              const investment = Math.max(point.investment, 0);
               const debt =
                 point.creditDebt +
                 Math.abs(Math.min(point.current, 0)) +
-                Math.abs(Math.min(point.savings, 0));
-              const stackedTotal = current + savings + debt;
+                Math.abs(Math.min(point.savings, 0)) +
+                Math.abs(Math.min(point.investment, 0));
+              const stackedTotal = current + savings + investment + debt;
 
               return (
                 <div
@@ -199,6 +203,14 @@ export function WealthInsights({ insights }: { insights: InsightsData }) {
                             className="bg-sky-500"
                             style={{
                               height: `${(savings / Math.max(stackedTotal, 1)) * 100}%`,
+                            }}
+                          />
+                        )}
+                        {investment > 0 && (
+                          <span
+                            className="bg-violet-500"
+                            style={{
+                              height: `${(investment / Math.max(stackedTotal, 1)) * 100}%`,
                             }}
                           />
                         )}
@@ -282,6 +294,9 @@ export function WealthInsights({ insights }: { insights: InsightsData }) {
                 <i className="h-2.5 w-2.5 rounded-full bg-sky-500" /> Savings
               </span>
               <span className="flex items-center gap-2">
+                <i className="h-2.5 w-2.5 rounded-full bg-violet-500" /> Investments
+              </span>
+              <span className="flex items-center gap-2">
                 <i className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Credit debt
               </span>
             </>
@@ -350,10 +365,10 @@ export function WealthInsights({ insights }: { insights: InsightsData }) {
         <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
           <HeadingWithInfo
             label="Current allocation"
-            info="Shows how your tracked account position is split across current accounts, savings, and credit debt. This helps reveal concentration risk within the app."
+            info="Shows how your tracked account position is split across current accounts, savings, investments, and credit debt. This helps reveal concentration risk within the app."
           />
           <p className="mt-1 text-sm text-zinc-500">
-            Cash, savings, and credit exposure from tracked accounts.
+            Cash, savings, investments, and credit exposure from tracked accounts.
           </p>
           <div className="mt-5 space-y-4">
             {insights.allocation.map((item) => (

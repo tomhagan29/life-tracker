@@ -18,6 +18,12 @@ type TransactionDraft = {
   transferAccountId: string;
 };
 
+type InvestmentSnapshotDraft = {
+  accountId: number;
+  name: string;
+  value: string;
+};
+
 type LogModalProps = {
   open: boolean;
   onClose: () => void;
@@ -45,6 +51,9 @@ export function LogModal({ open, onClose }: LogModalProps) {
     createTransactionDraft(),
   ]);
   const [completedHabitIds, setCompletedHabitIds] = useState<number[]>([]);
+  const [investmentSnapshots, setInvestmentSnapshots] = useState<
+    InvestmentSnapshotDraft[]
+  >([]);
   const [logDate, setLogDate] = useState(getTodayDateString);
   const [actionState, setActionState] = useState<DailyLogActionState>({
     ok: true,
@@ -82,6 +91,7 @@ export function LogModal({ open, onClose }: LogModalProps) {
             : [createTransactionDraft()],
         );
         setCompletedHabitIds(dailyLogOptions.completedHabitIds);
+        setInvestmentSnapshots(dailyLogOptions.investmentSnapshots);
       })
       .catch(() => {
         if (cancelled) {
@@ -153,9 +163,18 @@ export function LogModal({ open, onClose }: LogModalProps) {
     );
   }
 
+  function updateInvestmentSnapshot(accountId: number, value: string) {
+    setInvestmentSnapshots((current) =>
+      current.map((snapshot) =>
+        snapshot.accountId === accountId ? { ...snapshot, value } : snapshot,
+      ),
+    );
+  }
+
   function resetForm() {
     setTransactions([createTransactionDraft()]);
     setCompletedHabitIds([]);
+    setInvestmentSnapshots([]);
     setLogDate(getTodayDateString());
     setActionState({ ok: true });
   }
@@ -176,6 +195,7 @@ export function LogModal({ open, onClose }: LogModalProps) {
     formData.set("date", logDate);
     formData.set("transactions", JSON.stringify(filledTransactions));
     formData.set("habitIds", JSON.stringify(completedHabitIds));
+    formData.set("investmentSnapshots", JSON.stringify(investmentSnapshots));
 
     const result = await submitDailyLog(formData);
     setActionState(result);
@@ -233,11 +253,42 @@ export function LogModal({ open, onClose }: LogModalProps) {
                     setOptions(null);
                     setTransactions([createTransactionDraft()]);
                     setCompletedHabitIds([]);
+                    setInvestmentSnapshots([]);
                     setLogDate(event.target.value);
                   }}
                   className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5"
                 />
               </div>
+
+              {investmentSnapshots.length > 0 && (
+                <section className="mt-6 rounded-lg border border-blue-100 bg-blue-50 p-4">
+                  <h3 className="font-semibold">Investment snapshots</h3>
+                  <p className="mt-1 text-sm text-zinc-600">
+                    Record first-of-month account values so investment returns can be separated from contributions.
+                  </p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    {investmentSnapshots.map((snapshot) => (
+                      <label key={snapshot.accountId} className="block">
+                        <span className="text-sm font-semibold text-zinc-700">
+                          {snapshot.name}
+                        </span>
+                        <input
+                          value={snapshot.value}
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          onChange={(event) =>
+                            updateInvestmentSnapshot(
+                              snapshot.accountId,
+                              event.target.value,
+                            )
+                          }
+                          className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-right"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               <section className="mt-6">
                 <div className="flex items-center justify-between gap-4">
