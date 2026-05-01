@@ -16,6 +16,16 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+To populate the local SQLite database with repeatable demo data for reviewing
+dashboards and insights, run:
+
+```bash
+npm run db:seed:dummy
+```
+
+The seed command recreates its own demo accounts, transactions, budgets, goals,
+and habits without clearing unrelated local data.
+
 ## Desktop App
 
 This project is configured as a Tauri desktop app. In development, run:

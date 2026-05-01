@@ -10,6 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "db:seed:dummy": "node scripts/seed-dummy-data.mjs",
     "desktop:dev": "tauri dev --config '{\"bundle\":{\"resources\":[]}}'",
     "desktop:preview": "npm run tauri:prepare && LIFE_TRACKER_BUNDLED_SERVER=1 tauri dev --config '{\"build\":{\"beforeDevCommand\":\"\"}}'",
     "desktop:build": "tauri build",
