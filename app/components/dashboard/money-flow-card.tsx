@@ -26,7 +26,7 @@ export function MoneyFlowCard({
     <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-xl font-semibold">Money flow</h3>
+          <h3 className="text-xl font-semibold">Recent money flow</h3>
           <p className="mt-1 text-sm text-zinc-500">
             Income, bills, savings, and variable spend
           </p>
@@ -56,7 +56,9 @@ export function MoneyFlowCard({
       {hasFlow ? (
         <div
           className="mt-6 grid h-72 items-end gap-2 border-b border-zinc-200 pb-4"
-          style={{ gridTemplateColumns: `repeat(${bars.length}, minmax(0, 1fr))` }}
+          style={{
+            gridTemplateColumns: `repeat(${bars.length}, minmax(0, 1fr))`,
+          }}
         >
           {bars.map((bar, index) => (
             <div
