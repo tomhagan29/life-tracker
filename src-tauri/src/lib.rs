@@ -1,5 +1,6 @@
 use std::{
   fs,
+  io::{Read, Write},
   net::{TcpListener, TcpStream},
   path::{Path, PathBuf},
   process::{Child, Command, Stdio},
@@ -13,6 +14,9 @@ use tauri::{Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEven
 
 const HOST: &str = "127.0.0.1";
 const SERVER_STARTUP_TIMEOUT: Duration = Duration::from_secs(30);
+const SERVER_START_ATTEMPTS: usize = 5;
+const SERVER_POLL_INTERVAL: Duration = Duration::from_millis(300);
+const SERVER_HTTP_TIMEOUT: Duration = Duration::from_millis(500);
 
 struct NextServer(Mutex<Option<Child>>);
 
@@ -94,7 +98,6 @@ fn app_url(app: &tauri::AppHandle) -> Result<url::Url> {
 }
 
 fn start_next_server(app: &tauri::AppHandle) -> Result<String> {
-  let port = find_open_port()?;
   let resource_dir = app.path().resource_dir().context("Could not resolve Tauri resource directory")?;
   let standalone_dir = resource_dir.join(".next").join("standalone");
   let server_path = standalone_dir.join("server.js");
@@ -112,7 +115,50 @@ fn start_next_server(app: &tauri::AppHandle) -> Result<String> {
   fs::create_dir_all(&app_data_dir).context("Could not create app data directory")?;
 
   let database_path = app_data_dir.join("life-tracker.sqlite");
+  let mut last_error = None;
 
+  // The probed port is released before Node binds it, so retry if another
+  // process wins that race and the child exits before serving HTTP.
+  for attempt in 1..=SERVER_START_ATTEMPTS {
+    let port = find_open_port()?;
+    let mut child = spawn_next_server(
+      &node_path,
+      &server_path,
+      &standalone_dir,
+      &database_path,
+      &app_data_dir,
+      port,
+    )
+    .with_context(|| format!("Could not start bundled Next server on port {port}"))?;
+
+    match wait_for_server(&mut child, port) {
+      Ok(()) => {
+        let state = app.state::<NextServer>();
+        *state.0.lock().unwrap_or_else(|p| p.into_inner()) = Some(child);
+
+        return Ok(format!("http://{HOST}:{port}"));
+      }
+      Err(error) => {
+        let _ = child.kill();
+        let _ = child.wait();
+        last_error = Some(error.context(format!(
+          "Bundled Next server attempt {attempt}/{SERVER_START_ATTEMPTS} failed on port {port}"
+        )));
+      }
+    }
+  }
+
+  Err(last_error.unwrap_or_else(|| anyhow::anyhow!("Could not start bundled Next server")))
+}
+
+fn spawn_next_server(
+  node_path: &Path,
+  server_path: &Path,
+  standalone_dir: &Path,
+  database_path: &Path,
+  app_data_dir: &Path,
+  port: u16,
+) -> Result<Child> {
   let log_file = fs::OpenOptions::new()
     .create(true)
     .append(true)
@@ -120,10 +166,10 @@ fn start_next_server(app: &tauri::AppHandle) -> Result<String> {
     .context("Could not open server log file")?;
   let log_stderr = log_file.try_clone().context("Could not duplicate server log file handle")?;
 
-  let mut child = Command::new(node_path)
+  Command::new(node_path)
     .arg(server_path)
     .current_dir(standalone_dir)
-    .env("DATABASE_URL", sqlite_url(&database_path))
+    .env("DATABASE_URL", sqlite_url(database_path))
     .env("HOSTNAME", HOST)
     .env("PORT", port.to_string())
     .env("NODE_ENV", "production")
@@ -131,18 +177,7 @@ fn start_next_server(app: &tauri::AppHandle) -> Result<String> {
     .stdout(Stdio::from(log_file))
     .stderr(Stdio::from(log_stderr))
     .spawn()
-    .context("Could not start bundled Next server")?;
-
-  if let Err(error) = wait_for_server(port) {
-    let _ = child.kill();
-    let _ = child.wait();
-    return Err(error);
-  }
-
-  let state = app.state::<NextServer>();
-  *state.0.lock().unwrap_or_else(|p| p.into_inner()) = Some(child);
-
-  Ok(format!("http://{HOST}:{port}"))
+    .context("Could not spawn bundled Next server")
 }
 
 fn stop_next_server(app: &tauri::AppHandle) {
@@ -195,18 +230,48 @@ fn find_open_port() -> Result<u16> {
   Ok(listener.local_addr().context("Could not read bound port")?.port())
 }
 
-fn wait_for_server(port: u16) -> Result<()> {
+fn wait_for_server(child: &mut Child, port: u16) -> Result<()> {
   let started_at = Instant::now();
 
   while started_at.elapsed() < SERVER_STARTUP_TIMEOUT {
-    if TcpStream::connect((HOST, port)).is_ok() {
+    if let Some(status) = child.try_wait().context("Could not poll bundled Next server")? {
+      bail!("Bundled Next server exited before it was ready: {status}");
+    }
+
+    if server_http_ready(port) {
+      thread::sleep(Duration::from_millis(100));
+
+      if let Some(status) = child.try_wait().context("Could not poll bundled Next server")? {
+        bail!("Bundled Next server exited after port check: {status}");
+      }
+
       return Ok(());
     }
 
-    thread::sleep(Duration::from_millis(300));
+    thread::sleep(SERVER_POLL_INTERVAL);
   }
 
   bail!("Timed out waiting for bundled Next server")
+}
+
+fn server_http_ready(port: u16) -> bool {
+  let Ok(mut stream) = TcpStream::connect((HOST, port)) else {
+    return false;
+  };
+
+  let _ = stream.set_read_timeout(Some(SERVER_HTTP_TIMEOUT));
+  let _ = stream.set_write_timeout(Some(SERVER_HTTP_TIMEOUT));
+
+  if stream
+    .write_all(b"GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n")
+    .is_err()
+  {
+    return false;
+  }
+
+  let mut buffer = [0_u8; 12];
+
+  matches!(stream.read(&mut buffer), Ok(bytes_read) if bytes_read >= 7 && buffer.starts_with(b"HTTP/1."))
 }
 
 fn show_startup_error(window: &WebviewWindow) {
@@ -241,4 +306,41 @@ fn node_file_name() -> &'static str {
 
 fn sqlite_url(path: &std::path::Path) -> String {
   format!("file:{}", path.to_string_lossy().replace('\\', "/"))
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn server_http_ready_requires_http_response() {
+    let listener = TcpListener::bind((HOST, 0)).unwrap();
+    let port = listener.local_addr().unwrap().port();
+
+    thread::spawn(move || {
+      let (mut stream, _) = listener.accept().unwrap();
+      let mut request = [0_u8; 128];
+      let _ = stream.read(&mut request);
+      stream
+        .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
+        .unwrap();
+    });
+
+    assert!(server_http_ready(port));
+  }
+
+  #[test]
+  fn server_http_ready_rejects_non_http_response() {
+    let listener = TcpListener::bind((HOST, 0)).unwrap();
+    let port = listener.local_addr().unwrap().port();
+
+    thread::spawn(move || {
+      let (mut stream, _) = listener.accept().unwrap();
+      let mut request = [0_u8; 128];
+      let _ = stream.read(&mut request);
+      stream.write_all(b"not http").unwrap();
+    });
+
+    assert!(!server_http_ready(port));
+  }
 }
