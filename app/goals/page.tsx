@@ -2,6 +2,7 @@ import { getGoals } from "@/app/actions/goals";
 import { GoalRow, GoalsTable } from "@/app/components/goals/goals-table";
 import { PageHeader } from "@/app/components/shared/page-header";
 import { Sidebar } from "@/app/components/shared/sidebar";
+import { utcDisplayDateFormatter } from "@/lib/utc-date";
 
 export const dynamic = "force-dynamic";
 
@@ -19,11 +20,7 @@ function formatDisplayDate(date: Date | null) {
     return "None";
   }
 
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(date);
+  return utcDisplayDateFormatter.format(date);
 }
 
 function getProgress(currentAmount: number | null, targetAmount: number | null) {

@@ -4,6 +4,7 @@ import { Prisma, type AccountType } from "@/app/generated/prisma/client";
 import { dailyQuotes } from "@/lib/daily-quotes";
 import { formatHabitStreak } from "@/lib/habit-streak";
 import { prisma } from "@/lib/prisma";
+import { isSameUtcDate, utcShortDateFormatter } from "@/lib/utc-date";
 
 export type DashboardAccount = {
   id: number;
@@ -546,7 +547,7 @@ export async function getDashboardData(): Promise<DashboardData> {
         : goal.type === "numerical" && currentAmount !== null && targetAmount !== null
         ? `${formatCurrency(currentAmount)} of ${formatCurrency(targetAmount)}`
         : goal.deadline
-          ? `Due ${activityDateFormatter.format(goal.deadline)}`
+          ? `Due ${utcShortDateFormatter.format(goal.deadline)}`
           : "Milestone";
 
     return {
@@ -645,7 +646,7 @@ export async function getDashboardData(): Promise<DashboardData> {
         return false;
       }
 
-      return getStartOfDay(goal.deadline).getTime() === getStartOfDay(today).getTime();
+      return isSameUtcDate(goal.deadline, today);
     })
     .map((goal) => ({
       id: `goal-${goal.id}`,
@@ -715,7 +716,7 @@ export async function getDashboardData(): Promise<DashboardData> {
           : goal.type === "numerical"
           ? `${getGoalProgress(currentAmount, targetAmount)}%`
           : goal.deadline
-            ? `Due ${activityDateFormatter.format(goal.deadline)}`
+            ? `Due ${utcShortDateFormatter.format(goal.deadline)}`
             : "Milestone",
     };
   });

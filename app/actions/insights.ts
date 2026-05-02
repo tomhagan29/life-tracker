@@ -6,6 +6,7 @@ import {
   type TransactionType,
 } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { utcShortDateFormatter } from "@/lib/utc-date";
 
 export type InsightChartMode = "stacked" | "netWorth" | "cashFlow";
 
@@ -95,11 +96,6 @@ const monthYearFormatter = new Intl.DateTimeFormat("en-GB", {
 });
 
 const monthFormatter = new Intl.DateTimeFormat("en-GB", { month: "short" });
-
-const shortDateFormatter = new Intl.DateTimeFormat("en-GB", {
-  day: "numeric",
-  month: "short",
-});
 
 const MILESTONE_TARGETS = [
   1_000, 5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 750_000,
@@ -787,7 +783,7 @@ export async function getInsightsData(): Promise<InsightsData> {
             currentAmount !== null && targetAmount !== null
               ? `${formatCurrency(currentAmount)} of ${formatCurrency(targetAmount)}`
               : goal.deadline
-                ? `Due ${shortDateFormatter.format(goal.deadline)}`
+                ? `Due ${utcShortDateFormatter.format(goal.deadline)}`
                 : "No target amount",
           percent,
         };
@@ -811,7 +807,7 @@ export async function getInsightsData(): Promise<InsightsData> {
           milestoneCount > 0
             ? `${completeCount} of ${milestoneCount} milestones`
             : goal.deadline
-              ? `Due ${shortDateFormatter.format(goal.deadline)}`
+              ? `Due ${utcShortDateFormatter.format(goal.deadline)}`
               : "Milestone goal",
         percent,
       };

@@ -3,6 +3,7 @@
 import { GoalType, Prisma } from "@/app/generated/prisma/client";
 import { currencySchema, MAX_STRING_FIELD_LENGTH } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
+import { parseUtcDateInput } from "@/lib/utc-date";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -105,7 +106,7 @@ function parseGoalMilestoneForm(formData: FormData) {
 }
 
 function parseDeadline(deadline?: string) {
-  return deadline ? new Date(`${deadline}T00:00:00`) : null;
+  return parseUtcDateInput(deadline);
 }
 
 function getGoalActionError(error: unknown) {
