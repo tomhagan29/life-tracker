@@ -20,6 +20,9 @@ export type AccountRow = {
   balanceValue: number;
   outgoings: string;
   outgoingsValue: number;
+  transactionCount: number;
+  budgetItemCount: number;
+  investmentSnapshotCount: number;
 };
 
 const accountTypes: { value: AccountType; label: string }[] = [
@@ -68,11 +71,46 @@ export function AccountsTable({ accounts }: { accounts: AccountRow[] }) {
     }
   }
 
-  async function handleDeleteAccount(id: number) {
-    setPendingAction(`delete-${id}`);
+  function getDeleteWarning(row: AccountRow) {
+    return (
+      `${row.name} has ${row.transactionCount} transactions, ` +
+      `${row.budgetItemCount} budget items, and ` +
+      `${row.investmentSnapshotCount} investment snapshots. ` +
+      "Move or delete those records before deleting the account."
+    );
+  }
+
+  function hasLinkedRecords(row: AccountRow) {
+    return (
+      row.transactionCount > 0 ||
+      row.budgetItemCount > 0 ||
+      row.investmentSnapshotCount > 0
+    );
+  }
+
+  async function handleDeleteAccount(row: AccountRow) {
+    if (hasLinkedRecords(row)) {
+      setActionState({
+        ok: false,
+        message: getDeleteWarning(row),
+      });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete account ${row.name}? This account has ` +
+        `${row.transactionCount} transactions, ${row.budgetItemCount} budget items, ` +
+        `and ${row.investmentSnapshotCount} investment snapshots. This is irreversible.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setPendingAction(`delete-${row.id}`);
     setActionState({ ok: true });
 
-    const result = await deleteAccount(id);
+    const result = await deleteAccount(row.id);
     setActionState(result);
     setPendingAction(null);
   }
@@ -198,7 +236,7 @@ export function AccountsTable({ accounts }: { accounts: AccountRow[] }) {
                 <form
                   onSubmit={(event) => {
                     event.preventDefault();
-                    handleDeleteAccount(row.id);
+                    handleDeleteAccount(row);
                   }}
                 >
                   <button

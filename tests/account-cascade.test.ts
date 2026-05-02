@@ -39,9 +39,9 @@ function restoreEnvValue(name: string, value: string | undefined) {
   process.env[name] = value;
 }
 
-test("deleting an account cascades to its transactions", async () => {
+test("deleting an account with financial history is restricted", async () => {
   const tempDir = mkdtempSync(join(tmpdir(), "life-tracker-prisma-"));
-  const databasePath = join(tempDir, "cascade.db");
+  const databasePath = join(tempDir, "restrict.db");
   const originalDatabaseUrl = process.env.DATABASE_URL;
   const originalNextPhase = process.env.NEXT_PHASE;
   const originalNodeEnv = process.env.NODE_ENV;
@@ -64,7 +64,7 @@ test("deleting an account cascades to its transactions", async () => {
 
     const account = await prisma.account.create({
       data: {
-        name: "Cascade Checking",
+        name: "Protected Checking",
         balance: "100.00",
         type: "current",
       },
@@ -78,14 +78,16 @@ test("deleting an account cascades to its transactions", async () => {
       },
     });
 
-    await prisma.account.delete({
-      where: { id: account.id },
-    });
+    await assert.rejects(
+      prisma.account.delete({
+        where: { id: account.id },
+      }),
+    );
 
     await assert.rejects(
       prisma.transaction.create({
         data: {
-          accountId: account.id,
+          accountId: account.id + 999,
           amount: "1.00",
           type: "outgoing",
         },
@@ -95,8 +97,12 @@ test("deleting an account cascades to its transactions", async () => {
     const transactionCount = await prisma.transaction.count({
       where: { accountId: account.id },
     });
+    const accountCount = await prisma.account.count({
+      where: { id: account.id },
+    });
 
-    assert.equal(transactionCount, 0);
+    assert.equal(transactionCount, 1);
+    assert.equal(accountCount, 1);
   } finally {
     await client?.$disconnect();
     restoreEnvValue("DATABASE_URL", originalDatabaseUrl);

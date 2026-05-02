@@ -11,6 +11,12 @@ export type AccountActionState = {
   message?: string;
 };
 
+export type AccountDeleteSummary = {
+  transactionCount: number;
+  budgetItemCount: number;
+  investmentSnapshotCount: number;
+};
+
 const accountCreateSchema = z.object({
   name: z
     .string()
@@ -46,6 +52,10 @@ function getAccountActionError(error: unknown) {
 
     if (error.code === "P2025") {
       return "This account no longer exists.";
+    }
+
+    if (error.code === "P2003") {
+      return "This account is still used by financial records and cannot be deleted.";
     }
   }
 
@@ -129,6 +139,23 @@ export async function updateAccount(
 
 export async function deleteAccount(id: number): Promise<AccountActionState> {
   try {
+    const summary = await getAccountDeleteSummary(id);
+    const linkedRecordCount =
+      summary.transactionCount +
+      summary.budgetItemCount +
+      summary.investmentSnapshotCount;
+
+    if (linkedRecordCount > 0) {
+      return {
+        ok: false,
+        message:
+          `This account has ${summary.transactionCount} transactions, ` +
+          `${summary.budgetItemCount} budget items, and ` +
+          `${summary.investmentSnapshotCount} investment snapshots. ` +
+          "Move or delete those records before deleting the account.",
+      };
+    }
+
     await prisma.account.delete({
       where: { id },
     });
@@ -138,4 +165,32 @@ export async function deleteAccount(id: number): Promise<AccountActionState> {
   } catch (error) {
     return { ok: false, message: getAccountActionError(error) };
   }
+}
+
+export async function getAccountDeleteSummary(
+  id: number,
+): Promise<AccountDeleteSummary> {
+  const [
+    transactionCount,
+    budgetItemCount,
+    investmentSnapshotCount,
+  ] = await Promise.all([
+    prisma.transaction.count({
+      where: {
+        OR: [{ accountId: id }, { transferAccountId: id }],
+      },
+    }),
+    prisma.budgetItem.count({
+      where: { accountId: id },
+    }),
+    prisma.investmentSnapshot.count({
+      where: { accountId: id },
+    }),
+  ]);
+
+  return {
+    transactionCount,
+    budgetItemCount,
+    investmentSnapshotCount,
+  };
 }

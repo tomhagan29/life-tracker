@@ -67,7 +67,7 @@ model InvestmentSnapshot {
   id        Int      @id @default(autoincrement())
   date      DateTime
   value     Decimal
-  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Restrict)
   accountId Int
 
   @@unique([accountId, date])
@@ -82,9 +82,9 @@ model Transaction {
   amount            Decimal
   category          FinanceCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   categoryId        Int?
-  account           Account          @relation("AccountTransactions", fields: [accountId], references: [id], onDelete: Cascade)
+  account           Account          @relation("AccountTransactions", fields: [accountId], references: [id], onDelete: Restrict)
   accountId         Int
-  transferAccount   Account?         @relation("TransferDestination", fields: [transferAccountId], references: [id], onDelete: SetNull)
+  transferAccount   Account?         @relation("TransferDestination", fields: [transferAccountId], references: [id], onDelete: Restrict)
   transferAccountId Int?
 
   @@index([accountId])
@@ -124,7 +124,7 @@ model BudgetItem {
   dueDay     Int?
   category   FinanceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   categoryId Int
-  account    Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account    Account         @relation(fields: [accountId], references: [id], onDelete: Restrict)
   accountId  Int
 
   @@index([accountId])
