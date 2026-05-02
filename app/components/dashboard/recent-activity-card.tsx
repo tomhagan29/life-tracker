@@ -1,4 +1,4 @@
-import type { DashboardActivityRow } from "@/app/actions/dashboard";
+import type { DashboardActivityRow } from "@/lib/dashboard-activity";
 import { Column, DataTable } from "@/app/components/shared/data-table"
 
 export function RecentActivityCard({

@@ -1,6 +1,10 @@
 "use server";
 
 import { Prisma, type AccountType } from "@/app/generated/prisma/client";
+import {
+  buildRecentActivity,
+  type DashboardActivityRow,
+} from "@/lib/dashboard-activity";
 import { dailyQuotes } from "@/lib/daily-quotes";
 import { formatHabitStreak } from "@/lib/habit-streak";
 import { prisma } from "@/lib/prisma";
@@ -56,13 +60,6 @@ export type DashboardTodayItem = {
   task: string;
   status: string;
   meta: string;
-};
-
-export type DashboardActivityRow = {
-  id: string;
-  name: string;
-  category: string;
-  summary: string;
 };
 
 export type DashboardData = {
@@ -673,52 +670,25 @@ export async function getDashboardData(): Promise<DashboardData> {
     DASHBOARD_ITEM_LIMIT,
   );
 
-  const recentTransactions = transactions.slice(0, 6).map((transaction) => {
-    const isTransfer = transaction.type === "transfer";
-    const amount = formatDetailedCurrency(Math.abs(transaction.amount.toNumber()));
-
-    if (isTransfer) {
-      return {
-        id: `transaction-${transaction.id}`,
-        name:
-          transaction.transferAccount
-            ? `${transaction.account.name} to ${transaction.transferAccount.name}`
-            : transaction.account.name,
-        category: "Transfer",
-        summary: amount,
-      };
-    }
-
-    return {
-      id: `transaction-${transaction.id}`,
-      name: transaction.account.name,
-      category: transaction.category?.name ?? "Uncategorised",
-      summary: formatDetailedCurrency(transaction.amount.toNumber()),
-    };
-  });
-  const recentHabits = habits.slice(0, 3).map((habit) => ({
-    id: `habit-${habit.id}`,
-    name: habit.name,
-    category: habit.category.name,
-    summary: `${formatHabitStreak(habit)} streak`,
-  }));
-  const recentGoals = goals.slice(0, 3).map((goal) => {
-    const currentAmount = goal.currentAmount?.toNumber() ?? null;
-    const targetAmount = goal.targetAmount?.toNumber() ?? null;
-
-    return {
-      id: `goal-${goal.id}`,
-      name: goal.name,
-      category: "Goal",
-      summary:
-        goal.isComplete
-          ? "Complete"
-          : goal.type === "numerical"
-          ? `${getGoalProgress(currentAmount, targetAmount)}%`
-          : goal.deadline
-            ? `Due ${utcShortDateFormatter.format(goal.deadline)}`
-            : "Milestone",
-    };
+  const recentActivity = buildRecentActivity({
+    transactions: transactions.map((transaction) => ({
+      id: transaction.id,
+      date: transaction.date,
+      type: transaction.type,
+      amount: transaction.amount.toNumber(),
+      accountName: transaction.account.name,
+      categoryName: transaction.category?.name ?? null,
+      transferAccountName: transaction.transferAccount?.name ?? null,
+    })),
+    habits: habits.map((habit) => ({
+      id: habit.id,
+      name: habit.name,
+      categoryName: habit.category.name,
+      completions: habit.completions,
+    })),
+    formatAmount: formatDetailedCurrency,
+    formatDate: (date) => activityDateFormatter.format(date),
+    limit: 8,
   });
 
   const daysRemaining =
@@ -755,6 +725,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     ),
     moneyFlow,
     todayItems,
-    recentActivity: [...recentTransactions, ...recentHabits, ...recentGoals].slice(0, 8),
+    recentActivity,
   };
 }
