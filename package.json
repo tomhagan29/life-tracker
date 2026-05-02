@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "test": "node --loader ./tests/ts-extension-loader.mjs --test tests/*.test.ts",
     "start": "next start",
     "lint": "eslint",
     "db:seed:dummy": "node scripts/seed-dummy-data.mjs",
