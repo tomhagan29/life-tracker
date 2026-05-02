@@ -9,6 +9,7 @@ import { dailyQuotes } from "@/lib/daily-quotes";
 import { formatHabitStreak } from "@/lib/habit-streak";
 import { prisma } from "@/lib/prisma";
 import { isSameUtcDate, utcShortDateFormatter } from "@/lib/utc-date";
+import { getNetWorthBalance } from "@/lib/wealth-balances";
 
 export type DashboardAccount = {
   id: number;
@@ -490,11 +491,15 @@ export async function getDashboardData(): Promise<DashboardData> {
     balance: formatDetailedCurrency(account.balance.toNumber()),
   }));
 
-  const netWorth = accounts.reduce((sum, account) => {
-    const balance =
-      account.type === "credit" ? account.balance.abs().negated() : account.balance;
-    return sum.plus(balance);
-  }, new Prisma.Decimal(0));
+  const netWorth = accounts.reduce(
+    (sum, account) =>
+      sum +
+      getNetWorthBalance({
+        type: account.type,
+        balance: account.balance.toNumber(),
+      }),
+    0,
+  );
 
   const monthTransactions = transactions.filter(
     (transaction) => transaction.date >= monthStart && transaction.date < nextMonth,
@@ -699,7 +704,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   return {
     stats: {
       netWorth: {
-        value: formatCurrency(netWorth.toNumber()),
+        value: formatCurrency(netWorth),
         detail: `${accounts.length} tracked ${accounts.length === 1 ? "account" : "accounts"}`,
       },
       cashFlow: {

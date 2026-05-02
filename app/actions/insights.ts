@@ -7,6 +7,7 @@ import {
 } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { utcShortDateFormatter } from "@/lib/utc-date";
+import { getCreditDebt, getNetWorthBalance } from "@/lib/wealth-balances";
 
 export type InsightChartMode = "stacked" | "netWorth" | "cashFlow";
 
@@ -285,8 +286,11 @@ function getBalanceBreakdown(
       const rawBalance = rawBalances.get(account.id) ?? 0;
 
       if (account.type === "credit") {
-        breakdown.creditDebt += Math.abs(rawBalance);
-        breakdown.netWorth -= Math.abs(rawBalance);
+        breakdown.creditDebt += getCreditDebt(rawBalance);
+        breakdown.netWorth += getNetWorthBalance({
+          type: account.type,
+          balance: rawBalance,
+        });
         return breakdown;
       }
 
@@ -298,7 +302,10 @@ function getBalanceBreakdown(
         breakdown.current += rawBalance;
       }
 
-      breakdown.netWorth += rawBalance;
+      breakdown.netWorth += getNetWorthBalance({
+        type: account.type,
+        balance: rawBalance,
+      });
       return breakdown;
     },
     { current: 0, savings: 0, investment: 0, creditDebt: 0, netWorth: 0 },
