@@ -2,6 +2,11 @@
 
 import { Prisma, TransactionType } from "@/app/generated/prisma/client";
 import { currencySchema } from "@/lib/constants";
+import {
+  assertDailyLogReferencesExist,
+  collectDailyLogReferenceIds,
+  getDailyLogForeignKeyErrorMessage,
+} from "@/lib/daily-log-references";
 import { calculateHabitStreaks, formatHabitStreak } from "@/lib/habit-streak";
 import { toMoneyDecimal } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
@@ -181,11 +186,16 @@ function getHabitScheduleLabel(isDaily: boolean, frequency: number | null) {
 function getDailyLogActionError(error: unknown) {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === "P2003") {
-      return "Please choose valid accounts, categories, and habits.";
+      const fieldName =
+        typeof error.meta?.field_name === "string"
+          ? error.meta.field_name
+          : undefined;
+
+      return getDailyLogForeignKeyErrorMessage(fieldName);
     }
 
     if (error.code === "P2025") {
-      return "One of the selected records no longer exists.";
+      return getDailyLogForeignKeyErrorMessage();
     }
   }
 
@@ -470,15 +480,38 @@ export async function submitDailyLog(
     const dateRange = getLogDateRange(parsed.data.date);
     const monthRange = getLogMonthRange(parsed.data.date);
     const habitIds = Array.from(new Set(parsed.data.habitIds));
+    const includeInvestmentSnapshots = isFirstOfMonth(parsed.data.date);
+    const referenceInput = {
+      transactions: parsed.data.transactions,
+      habitIds,
+      investmentSnapshots: parsed.data.investmentSnapshots,
+      includeInvestmentSnapshots,
+    };
+    const referenceIds = collectDailyLogReferenceIds(referenceInput);
 
     await prisma.$transaction(async (tx) => {
       const habits = await tx.habit.findMany({
         select: {
           id: true,
+          name: true,
           isDaily: true,
           frequency: true,
         },
       });
+      const referencedAccounts =
+        referenceIds.accountIds.length > 0
+          ? await tx.account.findMany({
+              where: { id: { in: referenceIds.accountIds } },
+              select: { id: true, name: true, type: true },
+            })
+          : [];
+      const referencedCategories =
+        referenceIds.categoryIds.length > 0
+          ? await tx.financeCategory.findMany({
+              where: { id: { in: referenceIds.categoryIds } },
+              select: { id: true, name: true },
+            })
+          : [];
       const investmentAccounts = await tx.account.findMany({
         where: { type: "investment" },
         select: { id: true },
@@ -505,6 +538,13 @@ export async function submitDailyLog(
         },
         select: { habitId: true, date: true },
       });
+
+      assertDailyLogReferencesExist(referenceInput, {
+        accounts: referencedAccounts,
+        categories: referencedCategories,
+        habits,
+      });
+
       const habitById = new Map(habits.map((habit) => [habit.id, habit]));
       const investmentAccountIds = new Set(
         investmentAccounts.map((account) => account.id),
@@ -627,7 +667,7 @@ export async function submitDailyLog(
         }
       }
 
-      if (isFirstOfMonth(parsed.data.date)) {
+      if (includeInvestmentSnapshots) {
         const snapshotDate = getInvestmentSnapshotDate(parsed.data.date);
 
         for (const snapshot of parsed.data.investmentSnapshots) {
