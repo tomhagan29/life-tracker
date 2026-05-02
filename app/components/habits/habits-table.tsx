@@ -15,6 +15,7 @@ export type HabitRow = {
   category: string;
   categoryId: number;
   streak: number;
+  streakLabel: string;
   schedule: string;
   scheduleValue: string;
 };
@@ -164,7 +165,7 @@ export function HabitsTable({ habits, categories }: HabitsTableProps) {
       key: "streak",
       header: "Streak",
       className: "text-right font-semibold",
-      cell: (row) => `${row.streak} ${row.streak === 1 ? "day" : "days"}`,
+      cell: (row) => row.streakLabel,
     },
     {
       key: "actions",

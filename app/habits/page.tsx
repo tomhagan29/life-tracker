@@ -3,6 +3,7 @@ import { getHabits } from "@/app/actions/habits";
 import { HabitsTable, HabitRow } from "@/app/components/habits/habits-table";
 import { PageHeader } from "@/app/components/shared/page-header";
 import { Sidebar } from "@/app/components/shared/sidebar";
+import { formatHabitStreak } from "@/lib/habit-streak";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,7 @@ export default async function HabitsPage() {
     category: habit.category.name,
     categoryId: habit.categoryId,
     streak: habit.streak,
+    streakLabel: formatHabitStreak(habit),
     schedule: getHabitSchedule(habit.isDaily, habit.frequency),
     scheduleValue: getHabitScheduleValue(habit.isDaily, habit.frequency),
   }));

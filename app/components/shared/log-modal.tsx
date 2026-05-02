@@ -540,7 +540,7 @@ export function LogModal({ open, onClose }: LogModalProps) {
               <section className="mt-6">
                 <h3 className="font-semibold">Completed habits</h3>
                 <p className="mt-1 text-sm text-zinc-500">
-                  Checked habits will have their streak incremented
+                  Checked habits update completion history
                 </p>
 
                 {options && options.habits.length === 0 ? (
@@ -557,7 +557,7 @@ export function LogModal({ open, onClose }: LogModalProps) {
                         <span>
                           <span className="block font-semibold">{habit.name}</span>
                           <span className="mt-1 block text-sm text-zinc-500">
-                            {habit.schedule} · {habit.streak} day streak
+                            {habit.schedule} · {habit.streakLabel} streak
                           </span>
                         </span>
                         <input

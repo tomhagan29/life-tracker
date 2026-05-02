@@ -2,6 +2,7 @@
 
 import { Prisma, type AccountType } from "@/app/generated/prisma/client";
 import { dailyQuotes } from "@/lib/daily-quotes";
+import { formatHabitStreak } from "@/lib/habit-streak";
 import { prisma } from "@/lib/prisma";
 
 export type DashboardAccount = {
@@ -559,7 +560,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   const habitRows = habits.slice(0, DASHBOARD_ITEM_LIMIT).map((habit) => ({
     id: habit.id,
     name: habit.name,
-    streak: `${habit.streak} ${habit.streak === 1 ? "day" : "days"}`,
+    streak: formatHabitStreak(habit),
     progress: getHabitProgress({
       ...habit,
       rangeStart:
@@ -664,7 +665,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     id: `habit-${habit.id}`,
     task: habit.name,
     status: getHabitScheduleLabel(habit.isDaily, habit.frequency),
-    meta: `${habit.streak} day streak`,
+    meta: `${formatHabitStreak(habit)} streak`,
   }));
   const todayItems = [...goalItems, ...budgetItemsDueToday, ...habitItems].slice(
     0,
@@ -698,7 +699,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     id: `habit-${habit.id}`,
     name: habit.name,
     category: habit.category.name,
-    summary: `${habit.streak} day streak`,
+    summary: `${formatHabitStreak(habit)} streak`,
   }));
   const recentGoals = goals.slice(0, 3).map((goal) => {
     const currentAmount = goal.currentAmount?.toNumber() ?? null;

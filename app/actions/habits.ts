@@ -2,6 +2,7 @@
 
 import { Prisma } from "@/app/generated/prisma/client";
 import { MAX_STRING_FIELD_LENGTH } from "@/lib/constants";
+import { calculateHabitStreak } from "@/lib/habit-streak";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -157,14 +158,22 @@ export async function updateHabit(
   try {
     const schedule = getHabitScheduleData(parsed.data.schedule);
 
-    await prisma.habit.update({
-      where: { id },
-      data: {
-        name: parsed.data.name,
-        categoryId: parsed.data.categoryId,
-        isDaily: schedule.isDaily,
-        frequency: schedule.frequency,
-      },
+    await prisma.$transaction(async (tx) => {
+      const completions = await tx.habitCompletion.findMany({
+        where: { habitId: id },
+        select: { date: true },
+      });
+
+      await tx.habit.update({
+        where: { id },
+        data: {
+          name: parsed.data.name,
+          categoryId: parsed.data.categoryId,
+          isDaily: schedule.isDaily,
+          frequency: schedule.frequency,
+          streak: calculateHabitStreak(schedule, completions),
+        },
+      });
     });
 
     revalidateHabitPaths();

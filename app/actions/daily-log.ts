@@ -2,6 +2,7 @@
 
 import { Prisma, TransactionType } from "@/app/generated/prisma/client";
 import { currencySchema } from "@/lib/constants";
+import { calculateHabitStreaks, formatHabitStreak } from "@/lib/habit-streak";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -26,6 +27,7 @@ export type DailyLogOptions = {
     id: number;
     name: string;
     streak: number;
+    streakLabel: string;
     schedule: string;
   }[];
   completedHabitIds: number[];
@@ -451,6 +453,7 @@ export async function getDailyLogOptions(date: string): Promise<DailyLogOptions>
       id: habit.id,
       name: habit.name,
       streak: habit.streak,
+      streakLabel: formatHabitStreak(habit),
       schedule: getHabitScheduleLabel(habit.isDaily, habit.frequency),
     })),
     completedHabitIds: habits
@@ -740,25 +743,18 @@ export async function submitDailyLog(
         }
       }
 
-      for (const habitId of habitIdsToAdd) {
-        await tx.habit.update({
-          where: { id: habitId },
-          data: {
-            streak: {
-              increment: 1,
-            },
-          },
-        });
-      }
+      const habitCompletions = await tx.habitCompletion.findMany({
+        select: {
+          habitId: true,
+          date: true,
+        },
+      });
+      const streaksByHabitId = calculateHabitStreaks(habits, habitCompletions);
 
-      for (const habitId of habitIdsToRemove) {
-        await tx.habit.updateMany({
-          where: { id: habitId, streak: { gt: 0 } },
-          data: {
-            streak: {
-              decrement: 1,
-            },
-          },
+      for (const habit of habits) {
+        await tx.habit.update({
+          where: { id: habit.id },
+          data: { streak: streaksByHabitId.get(habit.id) ?? 0 },
         });
       }
     });
