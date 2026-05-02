@@ -5,6 +5,9 @@ import { ensureSqliteMigrations } from "./sqlite-migrations";
 
 ensureSqliteMigrations(process.env.DATABASE_URL);
 
+// SQLite stores Prisma Decimal columns with REAL affinity, so money values must
+// be quantized in application code before writes. Use toMoneyDecimal for all
+// persisted currency amounts and read/compute/write balance updates.
 type SqliteAdapterConnection = Awaited<ReturnType<PrismaBetterSqlite3["connect"]>>;
 
 async function enableForeignKeys(connection: SqliteAdapterConnection) {

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { Prisma } from "@/app/generated/prisma/client";
+import { toMoneyDecimal } from "@/lib/money";
 
 export type BudgetItemActionState = {
   ok: boolean;
@@ -86,7 +87,7 @@ export async function createBudgetItem(
     await prisma.budgetItem.create({
       data: {
         name: parsed.data.name,
-        amount: new Prisma.Decimal(parsed.data.amount),
+        amount: toMoneyDecimal(parsed.data.amount),
         dueDay: parsed.data.dueDay ?? null,
         categoryId: parsed.data.categoryId,
         accountId: parsed.data.accountId,
@@ -129,7 +130,7 @@ export async function updateBudgetItem(
       where: { id },
       data: {
         name: parsed.data.name,
-        amount: new Prisma.Decimal(parsed.data.amount),
+        amount: toMoneyDecimal(parsed.data.amount),
         dueDay: parsed.data.dueDay ?? null,
         categoryId: parsed.data.categoryId,
         accountId: parsed.data.accountId,

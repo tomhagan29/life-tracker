@@ -2,6 +2,7 @@
 
 import { GoalType, Prisma } from "@/app/generated/prisma/client";
 import { currencySchema, MAX_STRING_FIELD_LENGTH } from "@/lib/constants";
+import { toMoneyDecimal } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { parseUtcDateInput } from "@/lib/utc-date";
 import { revalidatePath } from "next/cache";
@@ -158,10 +159,10 @@ function getGoalData(goal: z.infer<typeof goalSchema>) {
     name: goal.name,
     type: goal.type,
     targetAmount: isNumerical
-      ? new Prisma.Decimal(goal.targetAmount ?? 0)
+      ? toMoneyDecimal(goal.targetAmount ?? 0)
       : null,
     currentAmount: isNumerical
-      ? new Prisma.Decimal(goal.currentAmount ?? 0)
+      ? toMoneyDecimal(goal.currentAmount ?? 0)
       : null,
     deadline: parseDeadline(goal.deadline),
   };

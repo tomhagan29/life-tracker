@@ -3,6 +3,7 @@
 import { Prisma, TransactionType } from "@/app/generated/prisma/client";
 import { currencySchema } from "@/lib/constants";
 import { calculateHabitStreaks, formatHabitStreak } from "@/lib/habit-streak";
+import { toMoneyDecimal } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -211,39 +212,34 @@ type BalanceTransaction = {
   transferAccountId: number | null;
 };
 
+async function adjustAccountBalance(
+  tx: Prisma.TransactionClient,
+  accountId: number,
+  delta: Prisma.Decimal,
+) {
+  const account = await tx.account.findUniqueOrThrow({
+    where: { id: accountId },
+    select: { balance: true },
+  });
+
+  await tx.account.update({
+    where: { id: accountId },
+    data: { balance: toMoneyDecimal(account.balance.plus(delta)) },
+  });
+}
+
 async function applyTransactionBalance(
   tx: Prisma.TransactionClient,
   transaction: BalanceTransaction,
 ) {
   if (transaction.transferAccountId) {
-    await tx.account.update({
-      where: { id: transaction.accountId },
-      data: {
-        balance: {
-          decrement: transaction.amount,
-        },
-      },
-    });
-    await tx.account.update({
-      where: { id: transaction.transferAccountId },
-      data: {
-        balance: {
-          increment: transaction.amount,
-        },
-      },
-    });
+    await adjustAccountBalance(tx, transaction.accountId, transaction.amount.negated());
+    await adjustAccountBalance(tx, transaction.transferAccountId, transaction.amount);
 
     return;
   }
 
-  await tx.account.update({
-    where: { id: transaction.accountId },
-    data: {
-      balance: {
-        increment: transaction.amount,
-      },
-    },
-  });
+  await adjustAccountBalance(tx, transaction.accountId, transaction.amount);
 }
 
 async function revertTransactionBalance(
@@ -251,34 +247,17 @@ async function revertTransactionBalance(
   transaction: BalanceTransaction,
 ) {
   if (transaction.transferAccountId) {
-    await tx.account.update({
-      where: { id: transaction.accountId },
-      data: {
-        balance: {
-          increment: transaction.amount,
-        },
-      },
-    });
-    await tx.account.update({
-      where: { id: transaction.transferAccountId },
-      data: {
-        balance: {
-          decrement: transaction.amount,
-        },
-      },
-    });
+    await adjustAccountBalance(tx, transaction.accountId, transaction.amount);
+    await adjustAccountBalance(
+      tx,
+      transaction.transferAccountId,
+      transaction.amount.negated(),
+    );
 
     return;
   }
 
-  await tx.account.update({
-    where: { id: transaction.accountId },
-    data: {
-      balance: {
-        increment: transaction.amount.mul(-1),
-      },
-    },
-  });
+  await adjustAccountBalance(tx, transaction.accountId, transaction.amount.negated());
 }
 
 async function refreshInvestmentAccountBalance(
@@ -328,7 +307,7 @@ async function refreshInvestmentAccountBalance(
 
   await tx.account.update({
     where: { id: accountId },
-    data: { balance },
+    data: { balance: toMoneyDecimal(balance) },
   });
 }
 
@@ -595,7 +574,7 @@ export async function submitDailyLog(
             throw new Error("Destination account is required");
           }
 
-          const amount = new Prisma.Decimal(Math.abs(transaction.amount));
+          const amount = toMoneyDecimal(Math.abs(transaction.amount));
 
           await tx.transaction.create({
             data: {
@@ -626,7 +605,7 @@ export async function submitDailyLog(
           transaction.direction === "income"
             ? Math.abs(transaction.amount)
             : -Math.abs(transaction.amount);
-        const amount = new Prisma.Decimal(signedAmount);
+        const amount = toMoneyDecimal(signedAmount);
 
         await tx.transaction.create({
           data: {
@@ -678,10 +657,10 @@ export async function submitDailyLog(
             create: {
               accountId: snapshot.accountId,
               date: snapshotDate,
-              value: new Prisma.Decimal(snapshot.value),
+              value: toMoneyDecimal(snapshot.value),
             },
             update: {
-              value: new Prisma.Decimal(snapshot.value),
+              value: toMoneyDecimal(snapshot.value),
             },
           });
         }

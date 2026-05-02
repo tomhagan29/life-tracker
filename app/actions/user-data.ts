@@ -1,6 +1,7 @@
 "use server";
 
 import { Prisma } from "@/app/generated/prisma/client";
+import { toMoneyDecimal } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { importDataSchema } from "@/lib/user-data-import-schema";
 import { revalidatePath } from "next/cache";
@@ -21,7 +22,7 @@ function revalidateUserDataPaths() {
 }
 
 function toDecimal(value: string | null) {
-  return value === null ? null : new Prisma.Decimal(value);
+  return value === null ? null : toMoneyDecimal(value);
 }
 
 function toDate(value: string | null) {
@@ -41,7 +42,7 @@ function getTransactionType(transaction: {
     return "transfer";
   }
 
-  return new Prisma.Decimal(transaction.amount).gte(0) ? "income" : "outgoing";
+  return toMoneyDecimal(transaction.amount).gte(0) ? "income" : "outgoing";
 }
 
 async function deleteAllData(tx: Prisma.TransactionClient) {
@@ -191,7 +192,7 @@ export async function importUserData(
       await tx.account.createMany({
         data: data.accounts.map((account) => ({
           ...account,
-          balance: new Prisma.Decimal(account.balance),
+          balance: toMoneyDecimal(account.balance),
         })),
       });
       await tx.checkIn.createMany({
@@ -213,7 +214,7 @@ export async function importUserData(
           ...transaction,
           date: new Date(transaction.date),
           type: getTransactionType(transaction),
-          amount: new Prisma.Decimal(transaction.amount),
+          amount: toMoneyDecimal(transaction.amount),
           categoryId: transaction.categoryId ?? null,
           transferAccountId: transaction.transferAccountId ?? null,
         })),
@@ -222,7 +223,7 @@ export async function importUserData(
         data: data.investmentSnapshots.map((snapshot) => ({
           ...snapshot,
           date: new Date(snapshot.date),
-          value: new Prisma.Decimal(snapshot.value),
+          value: toMoneyDecimal(snapshot.value),
         })),
       });
       await tx.habit.createMany({ data: data.habits });
@@ -235,7 +236,7 @@ export async function importUserData(
       await tx.budgetItem.createMany({
         data: data.budgetItems.map((budgetItem) => ({
           ...budgetItem,
-          amount: new Prisma.Decimal(budgetItem.amount),
+          amount: toMoneyDecimal(budgetItem.amount),
         })),
       });
       await tx.goalMilestone.createMany({

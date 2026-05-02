@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { AccountType, Prisma } from "@/app/generated/prisma/client";
 import { currencySchema, MAX_STRING_FIELD_LENGTH } from "@/lib/constants";
+import { toMoneyDecimal } from "@/lib/money";
 
 export type AccountActionState = {
   ok: boolean;
@@ -89,7 +90,7 @@ export async function createAccount(
     await prisma.account.create({
       data: {
         name: parsed.data.name,
-        balance: new Prisma.Decimal(parsed.data.balance),
+        balance: toMoneyDecimal(parsed.data.balance),
         type: parsed.data.type,
       },
     });
