@@ -28,6 +28,19 @@ and habits without clearing unrelated local data.
 
 ## Desktop App
 
+Tauri requires Rust/Cargo to be installed locally. On macOS, install Rust with:
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+Restart your terminal after installation, then check:
+
+```bash
+cargo --version
+rustc --version
+```
+
 This project is configured as a Tauri desktop app. In development, run:
 
 ```bash
