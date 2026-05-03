@@ -6,6 +6,7 @@
   "author": "Tom",
   "private": true,
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "next dev",
     "build": "next build",
     "test": "node --loader ./tests/ts-extension-loader.mjs --test tests/*.test.ts",
