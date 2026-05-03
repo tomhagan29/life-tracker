@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "description": "A finance and habit tracking dashboard.",
   "author": "Tom",
+  "license": "MIT",
   "private": true,
   "scripts": {
     "postinstall": "prisma generate",

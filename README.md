@@ -170,4 +170,4 @@ This is a personal local-first tracker, not a hosted product. There is no authen
 
 ## License
 
-No license has been selected yet.
+MIT License.
