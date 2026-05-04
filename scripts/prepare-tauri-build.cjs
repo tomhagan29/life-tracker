@@ -32,6 +32,57 @@ function copyDirectory(source, destination) {
   fs.cpSync(source, destination, { recursive: true });
 }
 
+function walkFiles(directory, visitor) {
+  if (!fs.existsSync(directory)) {
+    return;
+  }
+
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const filePath = path.join(directory, entry.name);
+
+    if (entry.isDirectory()) {
+      walkFiles(filePath, visitor);
+    } else if (entry.isFile()) {
+      visitor(filePath);
+    }
+  }
+}
+
+function packageNameFromAlias(alias) {
+  return alias.replace(/-[a-f0-9]{16,}$/, "");
+}
+
+function copyTurbopackPackageAliases() {
+  const serverRoot = path.join(standaloneRoot, ".next", "server");
+  const nodeModulesRoot = path.join(standaloneRoot, "node_modules");
+  const aliases = new Set();
+  const aliasPattern = /((?:@[^/\\\s"'`]+[/\\])?[^/\\\s"'`]+-[a-f0-9]{16,})(?=[/\\"'`])/g;
+
+  walkFiles(serverRoot, (filePath) => {
+    if (!filePath.endsWith(".js") && !filePath.endsWith(".json")) {
+      return;
+    }
+
+    const contents = fs.readFileSync(filePath, "utf8");
+
+    for (const match of contents.matchAll(aliasPattern)) {
+      aliases.add(match[1].replaceAll("\\", "/"));
+    }
+  });
+
+  for (const alias of aliases) {
+    const packageName = packageNameFromAlias(alias);
+    const source = path.join(nodeModulesRoot, ...packageName.split("/"));
+    const destination = path.join(nodeModulesRoot, ...alias.split("/"));
+
+    if (source === destination || !fs.existsSync(source)) {
+      continue;
+    }
+
+    copyDirectory(source, destination);
+  }
+}
+
 function removeIfExists(target) {
   fs.rmSync(target, { recursive: true, force: true });
 }
@@ -69,6 +120,7 @@ removeIfExists(path.join(standaloneRoot, ".git"));
 copyDirectory(path.join(root, ".next", "static"), path.join(standaloneRoot, ".next", "static"));
 copyDirectory(path.join(root, "public"), path.join(standaloneRoot, "public"));
 copyDirectory(path.join(root, "prisma", "migrations"), path.join(standaloneRoot, "prisma", "migrations"));
+copyTurbopackPackageAliases();
 copyNodeRuntime();
 
 console.log("Prepared Next standalone output and bundled Node runtime for Tauri.");

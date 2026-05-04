@@ -18,9 +18,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "resources": [
-      "../.next/standalone/**",
-      "bin/node*"
-    ]
+    "resources": {
+      "../.next/standalone": ".next/standalone",
+      "bin": "bin"
+    }
   }
 }
