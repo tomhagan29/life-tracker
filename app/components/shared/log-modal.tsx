@@ -580,7 +580,7 @@ export function LogModal({ open, onClose }: LogModalProps) {
                 className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-semibold hover:bg-white"
                 onClick={resetForm}
               >
-                Reset
+                Discard changes
               </button>
               <button
                 type="submit"

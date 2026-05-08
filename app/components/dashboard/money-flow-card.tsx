@@ -84,10 +84,10 @@ export function MoneyFlowCard({
       )}
       <div className="mt-4 flex flex-wrap gap-4 text-sm text-zinc-600">
         <span className="flex items-center gap-2">
-          <i className="h-2.5 w-2.5 rounded-full bg-teal-500" /> Income
+          <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-teal-500" /> Income
         </span>
         <span className="flex items-center gap-2">
-          <i className="h-2.5 w-2.5 rounded-full bg-zinc-900" /> Outgoing
+          <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-zinc-900" /> Outgoing
         </span>
       </div>
     </div>

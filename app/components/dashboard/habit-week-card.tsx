@@ -27,7 +27,22 @@ export function HabitWeekCard({
                     : "bg-zinc-100 text-zinc-500"
               }`}
             >
-              {day.completed ? "✓" : ""}
+              {day.completed && (
+                <svg
+                  className="size-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={3}
+                  stroke="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="m4.5 12.75 6 6 9-13.5"
+                  />
+                </svg>
+              )}
             </div>
           </div>
         ))}

@@ -279,25 +279,25 @@ export function WealthInsights({ insights }: { insights: InsightsData }) {
           {mode === "cashFlow" ? (
             <>
               <span className="flex items-center gap-2">
-                <i className="h-2.5 w-2.5 rounded-full bg-teal-500" /> Income
+                <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-teal-500" /> Income
               </span>
               <span className="flex items-center gap-2">
-                <i className="h-2.5 w-2.5 rounded-full bg-zinc-900" /> Spending
+                <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-zinc-900" /> Spending
               </span>
             </>
           ) : (
             <>
               <span className="flex items-center gap-2">
-                <i className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Current
+                <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Current
               </span>
               <span className="flex items-center gap-2">
-                <i className="h-2.5 w-2.5 rounded-full bg-sky-500" /> Savings
+                <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-sky-500" /> Savings
               </span>
               <span className="flex items-center gap-2">
-                <i className="h-2.5 w-2.5 rounded-full bg-violet-500" /> Investments
+                <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-violet-500" /> Investments
               </span>
               <span className="flex items-center gap-2">
-                <i className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Credit debt
+                <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Credit debt
               </span>
             </>
           )}

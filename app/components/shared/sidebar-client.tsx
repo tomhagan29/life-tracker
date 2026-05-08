@@ -67,11 +67,8 @@ export function SidebarClient({ snapshot }: SidebarClientProps) {
       <aside className="border-b border-zinc-200 bg-white px-5 py-4 lg:border-b-0 lg:border-r lg:py-6 2xl:px-7 min-[2200px]:px-8">
         <div className="flex items-center justify-between lg:block">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-zinc-500">
+            <h1 className="text-2xl font-semibold tracking-tight">
               Life Tracker
-            </p>
-            <h1 className="mt-2 text-2xl font-semibold tracking-normal">
-              Life tracker
             </h1>
           </div>
           <button

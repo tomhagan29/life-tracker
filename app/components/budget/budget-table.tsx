@@ -175,7 +175,7 @@ export function BudgetTable({
     {
       key: "amount",
       header: "Amount",
-      className: "text-right font-semibold",
+      className: "text-right font-semibold tabular-nums",
       cell: (row) =>
         editingBudgetItemId === row.id ? (
           <input
@@ -185,11 +185,7 @@ export function BudgetTable({
             className="w-full rounded-md border border-zinc-300 px-2 py-1 text-right font-normal text-zinc-950"
           />
         ) : (
-          <span
-            className={row.amountValue < 0 ? "text-red-600" : "text-green-600"}
-          >
-            {row.amount}
-          </span>
+          <span className="text-zinc-900">{row.amount}</span>
         ),
     },
     {
