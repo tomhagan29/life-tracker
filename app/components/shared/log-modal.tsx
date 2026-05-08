@@ -7,7 +7,7 @@ import {
   type DailyLogOptions,
 } from "@/app/actions/daily-log";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type TransactionDraft = {
   id: number;
@@ -46,6 +46,7 @@ function getTodayDateString() {
 
 export function LogModal({ open, onClose }: LogModalProps) {
   const router = useRouter();
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const [options, setOptions] = useState<DailyLogOptions | null>(null);
   const [transactions, setTransactions] = useState<TransactionDraft[]>([]);
   const [newTransaction, setNewTransaction] = useState(createTransactionDraft);
@@ -105,6 +106,32 @@ export function LogModal({ open, onClose }: LogModalProps) {
     };
   }, [open, logDate]);
 
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) {
+      return;
+    }
+
+    if (open && !dialog.open) {
+      dialog.showModal();
+    } else if (!open && dialog.open) {
+      dialog.close();
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, [open]);
+
   const canAddTransactions = useMemo(
     () =>
       Boolean(
@@ -115,10 +142,6 @@ export function LogModal({ open, onClose }: LogModalProps) {
     [options],
   );
   const loadingOptions = open && !options && actionState.ok;
-
-  if (!open) {
-    return null;
-  }
 
   function updateTransaction(
     id: number,
@@ -234,26 +257,51 @@ export function LogModal({ open, onClose }: LogModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-zinc-950/45 px-4 py-6 sm:items-center">
-      <div className="w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-xl">
-        <div className="flex items-center justify-between gap-4 border-b border-zinc-200 px-5 py-4">
-          <div>
-            <h2 className="text-xl font-semibold">Daily log</h2>
-            <p className="mt-1 text-sm text-zinc-500">
-              Add transactions and mark completed habits
-            </p>
-          </div>
-          <button
-            type="button"
-            className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-semibold hover:bg-zinc-50"
-            onClick={() => {
-              setActionState({ ok: true });
-              onClose();
-            }}
-          >
-            Close
-          </button>
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="log-modal-title"
+      onClose={() => {
+        setActionState({ ok: true });
+        onClose();
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          dialogRef.current?.close();
+        }
+      }}
+      className="mx-auto mt-6 w-[calc(100%-2rem)] max-w-4xl overflow-hidden rounded-lg bg-white p-0 shadow-xl backdrop:bg-zinc-950/45 sm:my-auto"
+    >
+      <div className="flex items-center justify-between gap-4 border-b border-zinc-200 px-5 py-4">
+        <div>
+          <h2 id="log-modal-title" className="text-xl font-semibold">
+            Daily log
+          </h2>
+          <p className="mt-1 text-sm text-zinc-500">
+            Add transactions and mark completed habits
+          </p>
         </div>
+        <button
+          type="button"
+          aria-label="Close daily log"
+          className="rounded-md p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+          onClick={() => dialogRef.current?.close()}
+        >
+          <svg
+            className="size-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      </div>
 
         {!actionState.ok && actionState.message && (
           <div className="border-b border-red-100 bg-red-50 px-5 py-3 text-sm font-medium text-red-700">
@@ -592,7 +640,6 @@ export function LogModal({ open, onClose }: LogModalProps) {
             </div>
           </form>
         )}
-      </div>
-    </div>
+    </dialog>
   );
 }
