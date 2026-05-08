@@ -22,7 +22,7 @@ export function RecentActivityCard({
     {
       key: "summary",
       header: "Summary",
-      className: "text-right font-semibold",
+      className: "text-right font-semibold tabular-nums",
       cell: (row) => row.summary,
     },
   ];

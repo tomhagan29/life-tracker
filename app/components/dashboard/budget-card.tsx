@@ -25,7 +25,7 @@ export function BudgetCard({ budgets }: { budgets: DashboardBudget[] }) {
             <div key={budget.label}>
               <div className="flex justify-between gap-4 text-sm">
                 <p className="font-semibold">{budget.label}</p>
-                <p className="text-zinc-500">{budget.total}</p>
+                <p className="tabular-nums text-zinc-500">{budget.total}</p>
               </div>
               <ProgressBar
                 value={budget.percent}

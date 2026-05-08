@@ -157,7 +157,7 @@ export function AccountsTable({ accounts }: { accounts: AccountRow[] }) {
     {
       key: "balance",
       header: "Balance",
-      className: "text-right font-semibold",
+      className: "text-right font-semibold tabular-nums",
       cell: (row) => (
         <div className={editingAccountId === row.id ? "py-1" : ""}>
           <span
@@ -171,7 +171,7 @@ export function AccountsTable({ accounts }: { accounts: AccountRow[] }) {
     {
       key: "outgoings",
       header: "Monthly outgoings",
-      className: "text-right",
+      className: "text-right tabular-nums",
       cell: (row) => (
         <div className={editingAccountId === row.id ? "py-1" : ""}>
           <span
@@ -293,6 +293,7 @@ export function AccountsTable({ accounts }: { accounts: AccountRow[] }) {
                 form={addFormId}
                 name="name"
                 placeholder="Account name"
+                aria-label="New account name"
                 className="w-full rounded-md border border-zinc-300 px-2 py-1"
               />
             </td>
@@ -302,6 +303,7 @@ export function AccountsTable({ accounts }: { accounts: AccountRow[] }) {
                 className="w-full rounded-md border border-zinc-300 px-2 py-1"
                 form={addFormId}
                 name="type"
+                aria-label="New account type"
               >
                 {accountTypes.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -316,7 +318,8 @@ export function AccountsTable({ accounts }: { accounts: AccountRow[] }) {
                 form={addFormId}
                 name="balance"
                 placeholder="0.00"
-                className="w-full rounded-md border border-zinc-300 px-2 py-1 text-right"
+                aria-label="New account starting balance"
+                className="w-full rounded-md border border-zinc-300 px-2 py-1 text-right tabular-nums"
               />
             </td>
 

@@ -27,7 +27,7 @@ export function AccountsCard({ accounts }: { accounts: DashboardAccount[] }) {
                   <p className="text-sm capitalize text-zinc-500">{account.type}</p>
                 </div>
               </div>
-              <p className="font-semibold">{account.balance}</p>
+              <p className="font-semibold tabular-nums">{account.balance}</p>
             </div>
           ))}
         </div>

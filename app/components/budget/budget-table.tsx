@@ -305,6 +305,7 @@ export function BudgetTable({
                 form={addFormId}
                 name="name"
                 placeholder="Budget item"
+                aria-label="New budget item name"
                 disabled={!canAddBudgetItem}
                 className="w-full rounded-md border border-zinc-300 px-2 py-1 disabled:bg-zinc-100"
               />
@@ -313,6 +314,7 @@ export function BudgetTable({
               <select
                 form={addFormId}
                 name="categoryId"
+                aria-label="New budget item category"
                 disabled={!canAddBudgetItem}
                 className="w-full rounded-md border border-zinc-300 px-2 py-1 disabled:bg-zinc-100"
               >
@@ -327,6 +329,7 @@ export function BudgetTable({
               <select
                 form={addFormId}
                 name="accountId"
+                aria-label="New budget item account"
                 disabled={!canAddBudgetItem}
                 className="w-full rounded-md border border-zinc-300 px-2 py-1 disabled:bg-zinc-100"
               >
@@ -341,6 +344,7 @@ export function BudgetTable({
               <select
                 form={addFormId}
                 name="dueDay"
+                aria-label="New budget item due day"
                 disabled={!canAddBudgetItem}
                 className="w-24 rounded-md border border-zinc-300 px-2 py-1 disabled:bg-zinc-100"
               >
@@ -357,8 +361,9 @@ export function BudgetTable({
                 form={addFormId}
                 name="amount"
                 placeholder="0.00"
+                aria-label="New budget item amount"
                 disabled={!canAddBudgetItem}
-                className="w-full rounded-md border border-zinc-300 px-2 py-1 text-right disabled:bg-zinc-100"
+                className="w-full rounded-md border border-zinc-300 px-2 py-1 text-right tabular-nums disabled:bg-zinc-100"
               />
             </td>
             <td className="px-5 py-3 text-right">

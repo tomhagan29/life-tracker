@@ -60,6 +60,7 @@ function GoalTypeSelect({
       name="type"
       defaultValue={defaultValue}
       disabled={disabled}
+      aria-label="Goal type"
       onChange={(event) => onChange(event.target.value as GoalType)}
       className="w-full rounded-md border border-zinc-300 px-2 py-1 text-zinc-950 disabled:bg-zinc-100"
     >
@@ -518,7 +519,7 @@ export function GoalsTable({ goals }: { goals: GoalRow[] }) {
                         <div>
                           <p>{row.typeLabel}</p>
                           {row.type === "numerical" && (
-                            <p className="mt-1 text-xs">
+                            <p className="mt-1 text-xs tabular-nums">
                               {row.currentAmount} of {row.targetAmount}
                             </p>
                           )}
@@ -526,7 +527,7 @@ export function GoalsTable({ goals }: { goals: GoalRow[] }) {
                       )}
                     </td>
 
-                    <td className="px-5 py-4 text-right font-semibold">
+                    <td className="px-5 py-4 text-right font-semibold tabular-nums">
                       {row.isComplete
                         ? "Complete"
                         : row.type === "milestone"
@@ -661,6 +662,7 @@ export function GoalsTable({ goals }: { goals: GoalRow[] }) {
                   form={addFormId}
                   name="name"
                   placeholder="Goal name"
+                  aria-label="New goal name"
                   className="w-full rounded-md border border-zinc-300 px-2 py-1"
                 />
               </td>
@@ -679,6 +681,7 @@ export function GoalsTable({ goals }: { goals: GoalRow[] }) {
                   form={addFormId}
                   name="deadline"
                   type="date"
+                  aria-label="New goal deadline"
                   className="w-full rounded-md border border-zinc-300 px-2 py-1"
                 />
               </td>

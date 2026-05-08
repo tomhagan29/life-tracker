@@ -36,10 +36,12 @@ function ScheduleSelect({
   form,
   defaultValue = "daily",
   disabled,
+  ariaLabel,
 }: {
   form: string;
   defaultValue?: string;
   disabled?: boolean;
+  ariaLabel?: string;
 }) {
   return (
     <select
@@ -47,6 +49,7 @@ function ScheduleSelect({
       name="schedule"
       defaultValue={defaultValue}
       disabled={disabled}
+      aria-label={ariaLabel}
       className="w-32 rounded-md border border-zinc-300 px-2 py-1 text-zinc-950 disabled:bg-zinc-100"
     >
       <option value="daily">Daily</option>
@@ -280,6 +283,7 @@ export function HabitsTable({ habits, categories }: HabitsTableProps) {
                 form={addFormId}
                 name="name"
                 placeholder="Habit name"
+                aria-label="New habit name"
                 disabled={!canAddHabit}
                 className="w-full rounded-md border border-zinc-300 px-2 py-1 disabled:bg-zinc-100"
               />
@@ -288,6 +292,7 @@ export function HabitsTable({ habits, categories }: HabitsTableProps) {
               <select
                 form={addFormId}
                 name="categoryId"
+                aria-label="New habit category"
                 disabled={!canAddHabit}
                 className="w-full rounded-md border border-zinc-300 px-2 py-1 disabled:bg-zinc-100"
               >
@@ -299,7 +304,11 @@ export function HabitsTable({ habits, categories }: HabitsTableProps) {
               </select>
             </td>
             <td className="px-5 py-3">
-              <ScheduleSelect form={addFormId} disabled={!canAddHabit} />
+              <ScheduleSelect
+                form={addFormId}
+                disabled={!canAddHabit}
+                ariaLabel="New habit schedule"
+              />
             </td>
             <td className="px-5 py-3">
               <p className="text-right font-semibold text-zinc-500">0 days</p>

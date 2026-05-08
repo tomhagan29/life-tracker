@@ -19,7 +19,7 @@ export function GoalsCard({ goals }: { goals: DashboardGoal[] }) {
                   <p className="font-semibold">{goal.title}</p>
                   <p className="mt-1 text-sm text-zinc-500">{goal.detail}</p>
                 </div>
-                <p className="text-sm font-semibold text-zinc-700">
+                <p className="text-sm font-semibold tabular-nums text-zinc-700">
                   {goal.progress}%
                 </p>
               </div>

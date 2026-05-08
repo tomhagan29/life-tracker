@@ -106,7 +106,7 @@ export function WealthInsights({ insights }: { insights: InsightsData }) {
               <p className="mt-1 text-sm font-medium text-zinc-500">
                 {milestone.dateLabel}
               </p>
-              <p className="mt-1 text-xs font-medium text-zinc-400">
+              <p className="mt-1 text-xs font-medium text-zinc-600">
                 {milestone.detail}
               </p>
             </div>
@@ -266,7 +266,7 @@ export function WealthInsights({ insights }: { insights: InsightsData }) {
                       </div>
                     )}
                   </div>
-                  <p className="h-4 truncate text-center text-xs font-medium text-zinc-400">
+                  <p className="h-4 truncate text-center text-xs font-medium text-zinc-600">
                     {showLabel ? point.label : ""}
                   </p>
                 </div>
