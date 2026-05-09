@@ -229,17 +229,17 @@ export function DataManagementCard() {
         </div>
       )}
 
-      <div className="grid gap-4 p-5 lg:grid-cols-3">
+      <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center">
         <button
           type="button"
           disabled={pendingAction !== null}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:bg-zinc-300"
+          className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-semibold hover:bg-zinc-50 disabled:opacity-50"
           onClick={handleExport}
         >
           {pendingAction === "export" ? "Exporting" : "Export all data"}
         </button>
 
-        <label className="cursor-pointer rounded-md border border-zinc-300 px-4 py-2 text-center text-sm font-semibold hover:bg-zinc-50 has-disabled:pointer-events-none has-disabled:bg-zinc-100 has-disabled:text-zinc-400">
+        <label className="cursor-pointer rounded-md border border-zinc-300 px-4 py-2 text-center text-sm font-semibold hover:bg-zinc-50 has-disabled:pointer-events-none has-disabled:opacity-50">
           {pendingAction === "import" ? "Importing" : "Import data"}
           <input
             ref={fileInputRef}
@@ -257,10 +257,12 @@ export function DataManagementCard() {
           />
         </label>
 
+        <div className="hidden sm:block sm:flex-1" aria-hidden="true" />
+
         <button
           type="button"
           disabled={pendingAction !== null}
-          className="rounded-md border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:bg-zinc-100 disabled:text-zinc-400"
+          className="rounded-md border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
           onClick={handleReset}
         >
           {pendingAction === "reset" ? "Resetting" : "Reset database"}

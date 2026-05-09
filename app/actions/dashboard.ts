@@ -48,12 +48,19 @@ export type DashboardMoneyFlowBar = {
   label: string;
   incomePercent: number;
   outgoingPercent: number;
+  incomeLabel: string;
+  outgoingLabel: string;
+};
+
+export type DashboardMoneyFlowPeriod = {
+  bars: DashboardMoneyFlowBar[];
+  peakLabel: string;
 };
 
 export type DashboardMoneyFlow = {
-  week: DashboardMoneyFlowBar[];
-  month: DashboardMoneyFlowBar[];
-  year: DashboardMoneyFlowBar[];
+  week: DashboardMoneyFlowPeriod;
+  month: DashboardMoneyFlowPeriod;
+  year: DashboardMoneyFlowPeriod;
 };
 
 export type DashboardTodayItem = {
@@ -591,7 +598,7 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   function buildMoneyFlowBars(
     buckets: { label: string; start: Date; end: Date }[],
-  ) {
+  ): DashboardMoneyFlowPeriod {
     const flowBuckets = buckets.map((bucket) => {
       const bucketTransactions = transactions.filter(
         (transaction) =>
@@ -623,17 +630,22 @@ export async function getDashboardData(): Promise<DashboardData> {
       0,
     );
 
-    return flowBuckets.map((bucket) => ({
-      label: bucket.label,
-      incomePercent:
-        maxFlow > 0
-          ? Math.max(Math.round((bucket.income / maxFlow) * 100), 4)
-          : 0,
-      outgoingPercent:
-        maxFlow > 0
-          ? Math.max(Math.round((bucket.outgoing / maxFlow) * 100), 4)
-          : 0,
-    }));
+    return {
+      peakLabel: maxFlow > 0 ? formatCurrency(maxFlow) : formatCurrency(0),
+      bars: flowBuckets.map((bucket) => ({
+        label: bucket.label,
+        incomePercent:
+          maxFlow > 0
+            ? Math.max(Math.round((bucket.income / maxFlow) * 100), 4)
+            : 0,
+        outgoingPercent:
+          maxFlow > 0
+            ? Math.max(Math.round((bucket.outgoing / maxFlow) * 100), 4)
+            : 0,
+        incomeLabel: formatCurrency(bucket.income),
+        outgoingLabel: formatCurrency(bucket.outgoing),
+      })),
+    };
   }
   const moneyFlow: DashboardMoneyFlow = {
     week: buildMoneyFlowBars(weekDays),

@@ -11,13 +11,22 @@ const modes: { value: MoneyFlowMode; label: string }[] = [
   { value: "year", label: "Year" },
 ];
 
+function shouldShowAxisLabel(index: number, total: number, mode: MoneyFlowMode) {
+  if (mode === "month") {
+    return index === 0 || index === total - 1 || (index + 1) % 5 === 0;
+  }
+
+  return true;
+}
+
 export function MoneyFlowCard({
   moneyFlow,
 }: {
   moneyFlow: DashboardMoneyFlow;
 }) {
   const [mode, setMode] = useState<MoneyFlowMode>("week");
-  const bars = moneyFlow[mode];
+  const period = moneyFlow[mode];
+  const bars = period.bars;
   const hasFlow = bars.some(
     (bar) => bar.incomePercent > 0 || bar.outgoingPercent > 0,
   );
@@ -54,28 +63,58 @@ export function MoneyFlowCard({
       </div>
 
       {hasFlow ? (
-        <div
-          className="mt-6 grid h-72 items-end gap-2 border-b border-zinc-200 pb-4"
-          style={{
-            gridTemplateColumns: `repeat(${bars.length}, minmax(0, 1fr))`,
-          }}
-        >
-          {bars.map((bar, index) => (
+        <div className="mt-6">
+          <div className="flex gap-3">
             <div
-              key={`${mode}-${bar.label}-${index}`}
-              className="flex h-full flex-col justify-end gap-1"
-              title={bar.label}
+              className="flex shrink-0 flex-col justify-between text-right text-xs font-medium tabular-nums text-zinc-500"
+              style={{ height: "18rem" }}
+              aria-hidden="true"
             >
-              <div
-                className="rounded-t-md bg-teal-500"
-                style={{ height: `${bar.incomePercent}%` }}
-              />
-              <div
-                className="rounded-t-md bg-zinc-900"
-                style={{ height: `${bar.outgoingPercent}%` }}
-              />
+              <span>{period.peakLabel}</span>
+              <span>£0</span>
             </div>
-          ))}
+            <div className="min-w-0 flex-1">
+              <div
+                className="grid items-end gap-2 border-b border-zinc-200 pb-2"
+                style={{
+                  gridTemplateColumns: `repeat(${bars.length}, minmax(0, 1fr))`,
+                  height: "18rem",
+                }}
+              >
+                {bars.map((bar, index) => (
+                  <div
+                    key={`${mode}-${bar.label}-${index}`}
+                    className="flex h-full flex-col justify-end gap-1"
+                    title={`${bar.label}: income ${bar.incomeLabel}, outgoing ${bar.outgoingLabel}`}
+                  >
+                    <div
+                      className="rounded-t-md bg-teal-500"
+                      style={{ height: `${bar.incomePercent}%` }}
+                    />
+                    <div
+                      className="rounded-t-md bg-zinc-900"
+                      style={{ height: `${bar.outgoingPercent}%` }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div
+                className="mt-2 grid gap-2 text-center text-xs font-medium text-zinc-600"
+                style={{
+                  gridTemplateColumns: `repeat(${bars.length}, minmax(0, 1fr))`,
+                }}
+              >
+                {bars.map((bar, index) => (
+                  <span
+                    key={`${mode}-label-${index}`}
+                    className="truncate"
+                  >
+                    {shouldShowAxisLabel(index, bars.length, mode) ? bar.label : ""}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       ) : (
         <p className="mt-6 rounded-lg border border-dashed border-zinc-300 p-4 text-sm font-medium text-zinc-500">
