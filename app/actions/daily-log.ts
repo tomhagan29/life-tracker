@@ -18,6 +18,49 @@ export type DailyLogActionState = {
   message?: string;
 };
 
+export type WeeklyLogDay = {
+  date: string;
+  label: string;
+  dayNum: string;
+  isToday: boolean;
+};
+
+export type WeeklyLogHabit = {
+  id: number;
+  name: string;
+  schedule: string;
+  streakLabel: string;
+  completedDates: string[];
+};
+
+export type WeeklyLogTransaction = {
+  id: number;
+  date: string;
+  direction: TransactionType;
+  amount: string;
+  accountId: number;
+  categoryId: number | null;
+  transferAccountId: number | null;
+};
+
+export type WeeklyLogInvestmentSnapshot = {
+  accountId: number;
+  name: string;
+  date: string;
+  value: string;
+};
+
+export type WeeklyLogOptions = {
+  weekStart: string;
+  days: WeeklyLogDay[];
+  habits: WeeklyLogHabit[];
+  monthlyHabitCount: number;
+  accounts: { id: number; name: string; type: string }[];
+  categories: { id: number; name: string }[];
+  transactions: WeeklyLogTransaction[];
+  investmentSnapshots: WeeklyLogInvestmentSnapshot[];
+};
+
 export type DailyLogOptions = {
   accounts: { id: number; name: string; type: string }[];
   categories: { id: number; name: string }[];
@@ -149,6 +192,57 @@ function getLogDateRange(date: string) {
   end.setUTCDate(end.getUTCDate() + 1);
 
   return { start, end };
+}
+
+function getWeekStartDateString(date: string) {
+  const d = new Date(`${date}T00:00:00Z`);
+  const day = d.getUTCDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  d.setUTCDate(d.getUTCDate() + mondayOffset);
+  return d.toISOString().slice(0, 10);
+}
+
+function getWeekDateRange(weekStart: string) {
+  const start = new Date(`${weekStart}T00:00:00Z`);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 7);
+
+  return { start, end };
+}
+
+const weekDayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function findFirstOfMonthInWeek(weekStart: string) {
+  const start = new Date(`${weekStart}T00:00:00Z`);
+
+  for (let index = 0; index < 7; index += 1) {
+    const day = new Date(start);
+    day.setUTCDate(day.getUTCDate() + index);
+
+    if (day.getUTCDate() === 1) {
+      return day.toISOString().slice(0, 10);
+    }
+  }
+
+  return null;
+}
+
+function getWeekDays(weekStart: string) {
+  const start = new Date(`${weekStart}T00:00:00Z`);
+  const today = new Date().toISOString().slice(0, 10);
+
+  return Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(start);
+    day.setUTCDate(day.getUTCDate() + index);
+    const dateString = day.toISOString().slice(0, 10);
+
+    return {
+      date: dateString,
+      label: weekDayLabels[index],
+      dayNum: String(day.getUTCDate()),
+      isToday: dateString === today,
+    };
+  });
 }
 
 function isFirstOfMonth(date: string) {
@@ -767,6 +861,515 @@ export async function submitDailyLog(
           habitId: true,
           date: true,
         },
+      });
+      const streaksByHabitId = calculateHabitStreaks(habits, habitCompletions);
+
+      for (const habit of habits) {
+        await tx.habit.update({
+          where: { id: habit.id },
+          data: { streak: streaksByHabitId.get(habit.id) ?? 0 },
+        });
+      }
+    });
+
+    revalidateDailyLogPaths();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: getDailyLogActionError(error) };
+  }
+}
+
+const weekDateRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+const weeklyTransactionDraftSchema = transactionDraftSchema.and(
+  z.object({
+    date: z.string().regex(weekDateRegex, "Choose a valid date"),
+  }),
+);
+
+const weeklyLogSchema = z
+  .object({
+    weekStart: z.string().regex(weekDateRegex, "Choose a valid week"),
+    transactions: z.array(weeklyTransactionDraftSchema),
+    completions: z.array(
+      z.object({
+        habitId: z.coerce.number().int().positive(),
+        date: z.string().regex(weekDateRegex, "Choose a valid date"),
+      }),
+    ),
+    investmentSnapshots: z.array(
+      z.object({
+        accountId: z.coerce.number().int().positive(),
+        date: z.string().regex(weekDateRegex, "Choose a valid date"),
+        value: z.string().trim(),
+      }),
+    ),
+  })
+  .superRefine((log, context) => {
+    for (const [index, snapshot] of log.investmentSnapshots.entries()) {
+      if (snapshot.value === "") {
+        continue;
+      }
+
+      const parsed = currencySchema.safeParse(snapshot.value);
+      if (!parsed.success || parsed.data < 0) {
+        context.addIssue({
+          code: "custom",
+          path: ["investmentSnapshots", index, "value"],
+          message: "Investment snapshot values must be zero or greater",
+        });
+      }
+    }
+  });
+
+export async function getWeeklyLogOptions(
+  weekStart: string,
+): Promise<WeeklyLogOptions> {
+  const parsed = z.string().regex(weekDateRegex).safeParse(weekStart);
+  const baseDate = parsed.success
+    ? parsed.data
+    : new Date().toISOString().slice(0, 10);
+  const normalizedWeekStart = getWeekStartDateString(baseDate);
+  const days = getWeekDays(normalizedWeekStart);
+  const range = getWeekDateRange(normalizedWeekStart);
+  const firstOfMonthDate = findFirstOfMonthInWeek(normalizedWeekStart);
+
+  const [accounts, categories, habits, completions, transactionsRaw] =
+    await Promise.all([
+      prisma.account.findMany({
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, type: true },
+      }),
+      prisma.financeCategory.findMany({
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      }),
+      prisma.habit.findMany({
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+          streak: true,
+          isDaily: true,
+          frequency: true,
+        },
+      }),
+      prisma.habitCompletion.findMany({
+        where: {
+          date: {
+            gte: range.start,
+            lt: range.end,
+          },
+        },
+        select: { habitId: true, date: true },
+      }),
+      prisma.transaction.findMany({
+        where: {
+          date: {
+            gte: range.start,
+            lt: range.end,
+          },
+        },
+        orderBy: [{ date: "asc" }, { id: "asc" }],
+        select: {
+          id: true,
+          date: true,
+          amount: true,
+          type: true,
+          accountId: true,
+          categoryId: true,
+          transferAccountId: true,
+        },
+      }),
+    ]);
+
+  const investmentAccounts = accounts.filter(
+    (account) => account.type === "investment",
+  );
+  const investmentSnapshotRows =
+    firstOfMonthDate && investmentAccounts.length > 0
+      ? await prisma.investmentSnapshot.findMany({
+          where: {
+            accountId: { in: investmentAccounts.map((account) => account.id) },
+            date: getInvestmentSnapshotDate(firstOfMonthDate),
+          },
+          select: { accountId: true, value: true },
+        })
+      : [];
+  const investmentSnapshotValueByAccount = new Map(
+    investmentSnapshotRows.map((snapshot) => [
+      snapshot.accountId,
+      snapshot.value.toFixed(2),
+    ]),
+  );
+
+  const completedByHabit = new Map<number, string[]>();
+  for (const completion of completions) {
+    const dateString = completion.date.toISOString().slice(0, 10);
+    const list = completedByHabit.get(completion.habitId) ?? [];
+    list.push(dateString);
+    completedByHabit.set(completion.habitId, list);
+  }
+
+  const eligibleHabits = habits.filter(
+    (habit) => habit.isDaily || habit.frequency !== null,
+  );
+  const monthlyHabitCount = habits.length - eligibleHabits.length;
+
+  return {
+    weekStart: normalizedWeekStart,
+    days,
+    monthlyHabitCount,
+    accounts,
+    categories,
+    transactions: transactionsRaw.map((transaction) => ({
+      id: transaction.id,
+      date: transaction.date.toISOString().slice(0, 10),
+      direction: transaction.type,
+      amount: Math.abs(transaction.amount.toNumber()).toString(),
+      accountId: transaction.accountId,
+      categoryId: transaction.categoryId,
+      transferAccountId: transaction.transferAccountId,
+    })),
+    habits: eligibleHabits.map((habit) => ({
+      id: habit.id,
+      name: habit.name,
+      schedule: getHabitScheduleLabel(habit.isDaily, habit.frequency),
+      streakLabel: formatHabitStreak(habit),
+      completedDates: completedByHabit.get(habit.id) ?? [],
+    })),
+    investmentSnapshots: firstOfMonthDate
+      ? investmentAccounts.map((account) => ({
+          accountId: account.id,
+          name: account.name,
+          date: firstOfMonthDate,
+          value: investmentSnapshotValueByAccount.get(account.id) ?? "",
+        }))
+      : [],
+  };
+}
+
+export async function submitWeeklyLog(
+  formData: FormData,
+): Promise<DailyLogActionState> {
+  const parsed = weeklyLogSchema.safeParse({
+    weekStart: formData.get("weekStart"),
+    transactions: parseJsonField(formData.get("transactions"), []),
+    completions: parseJsonField(formData.get("completions"), []),
+    investmentSnapshots: parseJsonField(
+      formData.get("investmentSnapshots"),
+      [],
+    ),
+  });
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message:
+        parsed.error.issues[0]?.message ?? "Please check the log details.",
+    };
+  }
+
+  try {
+    const normalizedWeekStart = getWeekStartDateString(parsed.data.weekStart);
+    const range = getWeekDateRange(normalizedWeekStart);
+    const weekDates = new Set(
+      getWeekDays(normalizedWeekStart).map((day) => day.date),
+    );
+    const firstOfMonthDate = findFirstOfMonthInWeek(normalizedWeekStart);
+
+    for (const completion of parsed.data.completions) {
+      if (!weekDates.has(completion.date)) {
+        return {
+          ok: false,
+          message: "Completion date is outside the selected week.",
+        };
+      }
+    }
+
+    for (const transaction of parsed.data.transactions) {
+      if (!weekDates.has(transaction.date)) {
+        return {
+          ok: false,
+          message: "Transaction date is outside the selected week.",
+        };
+      }
+    }
+
+    for (const snapshot of parsed.data.investmentSnapshots) {
+      if (snapshot.date !== firstOfMonthDate) {
+        return {
+          ok: false,
+          message:
+            "Investment snapshots must be dated to the first of the month.",
+        };
+      }
+    }
+
+    const submittedKeys = new Set(
+      parsed.data.completions.map(
+        (completion) => `${completion.habitId}:${completion.date}`,
+      ),
+    );
+    const habitIds = Array.from(
+      new Set(parsed.data.completions.map((completion) => completion.habitId)),
+    );
+    const includeInvestmentSnapshots = firstOfMonthDate !== null;
+    const referenceInput = {
+      transactions: parsed.data.transactions,
+      habitIds,
+      investmentSnapshots: parsed.data.investmentSnapshots,
+      includeInvestmentSnapshots,
+    };
+    const referenceIds = collectDailyLogReferenceIds(referenceInput);
+
+    await prisma.$transaction(async (tx) => {
+      const habits = await tx.habit.findMany({
+        select: {
+          id: true,
+          name: true,
+          isDaily: true,
+          frequency: true,
+        },
+      });
+      const referencedAccounts =
+        referenceIds.accountIds.length > 0
+          ? await tx.account.findMany({
+              where: { id: { in: referenceIds.accountIds } },
+              select: { id: true, name: true, type: true },
+            })
+          : [];
+      const referencedCategories =
+        referenceIds.categoryIds.length > 0
+          ? await tx.financeCategory.findMany({
+              where: { id: { in: referenceIds.categoryIds } },
+              select: { id: true, name: true },
+            })
+          : [];
+      const investmentAccounts = await tx.account.findMany({
+        where: { type: "investment" },
+        select: { id: true },
+      });
+
+      assertDailyLogReferencesExist(referenceInput, {
+        accounts: referencedAccounts,
+        categories: referencedCategories,
+        habits,
+      });
+
+      const investmentAccountIds = new Set(
+        investmentAccounts.map((account) => account.id),
+      );
+      const touchedInvestmentAccountIds = new Set<number>();
+
+      const existingTransactions = await tx.transaction.findMany({
+        where: {
+          date: {
+            gte: range.start,
+            lt: range.end,
+          },
+        },
+        select: {
+          amount: true,
+          accountId: true,
+          transferAccountId: true,
+        },
+      });
+
+      for (const transaction of existingTransactions) {
+        await revertTransactionBalance(tx, transaction);
+        if (investmentAccountIds.has(transaction.accountId)) {
+          touchedInvestmentAccountIds.add(transaction.accountId);
+        }
+        if (
+          transaction.transferAccountId &&
+          investmentAccountIds.has(transaction.transferAccountId)
+        ) {
+          touchedInvestmentAccountIds.add(transaction.transferAccountId);
+        }
+      }
+
+      await tx.transaction.deleteMany({
+        where: {
+          date: {
+            gte: range.start,
+            lt: range.end,
+          },
+        },
+      });
+
+      for (const transaction of parsed.data.transactions) {
+        const date = parseLogDate(transaction.date);
+
+        if (transaction.direction === "transfer") {
+          const transferAccountId = transaction.transferAccountId;
+
+          if (!transferAccountId) {
+            throw new Error("Destination account is required");
+          }
+
+          const amount = toMoneyDecimal(Math.abs(transaction.amount));
+
+          await tx.transaction.create({
+            data: {
+              date,
+              type: "transfer",
+              amount,
+              accountId: transaction.accountId,
+              transferAccountId,
+            },
+          });
+
+          await applyTransactionBalance(tx, {
+            amount,
+            accountId: transaction.accountId,
+            transferAccountId,
+          });
+          if (investmentAccountIds.has(transaction.accountId)) {
+            touchedInvestmentAccountIds.add(transaction.accountId);
+          }
+          if (investmentAccountIds.has(transferAccountId)) {
+            touchedInvestmentAccountIds.add(transferAccountId);
+          }
+
+          continue;
+        }
+
+        const signedAmount =
+          transaction.direction === "income"
+            ? Math.abs(transaction.amount)
+            : -Math.abs(transaction.amount);
+        const amount = toMoneyDecimal(signedAmount);
+
+        await tx.transaction.create({
+          data: {
+            date,
+            type: transaction.direction,
+            amount,
+            accountId: transaction.accountId,
+            categoryId: transaction.categoryId,
+          },
+        });
+
+        await applyTransactionBalance(tx, {
+          amount,
+          accountId: transaction.accountId,
+          transferAccountId: null,
+        });
+        if (investmentAccountIds.has(transaction.accountId)) {
+          touchedInvestmentAccountIds.add(transaction.accountId);
+        }
+      }
+
+      if (includeInvestmentSnapshots && firstOfMonthDate) {
+        const snapshotDate = getInvestmentSnapshotDate(firstOfMonthDate);
+
+        for (const snapshot of parsed.data.investmentSnapshots) {
+          if (!investmentAccountIds.has(snapshot.accountId)) {
+            continue;
+          }
+
+          touchedInvestmentAccountIds.add(snapshot.accountId);
+
+          if (snapshot.value === "") {
+            await tx.investmentSnapshot.deleteMany({
+              where: {
+                accountId: snapshot.accountId,
+                date: snapshotDate,
+              },
+            });
+            continue;
+          }
+
+          await tx.investmentSnapshot.upsert({
+            where: {
+              accountId_date: {
+                accountId: snapshot.accountId,
+                date: snapshotDate,
+              },
+            },
+            create: {
+              accountId: snapshot.accountId,
+              date: snapshotDate,
+              value: toMoneyDecimal(snapshot.value),
+            },
+            update: {
+              value: toMoneyDecimal(snapshot.value),
+            },
+          });
+        }
+      }
+
+      for (const accountId of touchedInvestmentAccountIds) {
+        await refreshInvestmentAccountBalance(tx, accountId);
+      }
+
+      const eligibleHabitIds = new Set(
+        habits
+          .filter((habit) => habit.isDaily || habit.frequency !== null)
+          .map((habit) => habit.id),
+      );
+      const existing = await tx.habitCompletion.findMany({
+        where: {
+          date: {
+            gte: range.start,
+            lt: range.end,
+          },
+          habitId: { in: Array.from(eligibleHabitIds) },
+        },
+        select: { habitId: true, date: true },
+      });
+      const existingKeys = new Set(
+        existing.map(
+          (completion) =>
+            `${completion.habitId}:${completion.date.toISOString().slice(0, 10)}`,
+        ),
+      );
+
+      const toAdd = parsed.data.completions.filter((completion) => {
+        if (!eligibleHabitIds.has(completion.habitId)) {
+          return false;
+        }
+        return !existingKeys.has(`${completion.habitId}:${completion.date}`);
+      });
+
+      const toRemove = existing
+        .map((completion) => ({
+          habitId: completion.habitId,
+          date: completion.date.toISOString().slice(0, 10),
+        }))
+        .filter(
+          (completion) =>
+            !submittedKeys.has(`${completion.habitId}:${completion.date}`),
+        );
+
+      for (const completion of toAdd) {
+        await tx.habitCompletion.upsert({
+          where: {
+            habitId_date: {
+              habitId: completion.habitId,
+              date: parseLogDate(completion.date),
+            },
+          },
+          create: {
+            habitId: completion.habitId,
+            date: parseLogDate(completion.date),
+          },
+          update: {},
+        });
+      }
+
+      for (const completion of toRemove) {
+        await tx.habitCompletion.deleteMany({
+          where: {
+            habitId: completion.habitId,
+            date: parseLogDate(completion.date),
+          },
+        });
+      }
+
+      const habitCompletions = await tx.habitCompletion.findMany({
+        select: { habitId: true, date: true },
       });
       const streaksByHabitId = calculateHabitStreaks(habits, habitCompletions);
 
