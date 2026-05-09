@@ -161,7 +161,7 @@ export function AccountsTable({ accounts }: { accounts: AccountRow[] }) {
       cell: (row) => (
         <div className={editingAccountId === row.id ? "py-1" : ""}>
           <span
-            className={row.balanceValue < 0 ? "text-red-600" : "text-green-600"}
+            className={row.balanceValue < 0 ? "text-rose-600" : "text-emerald-600"}
           >
             {row.balance}
           </span>

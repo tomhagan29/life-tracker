@@ -88,7 +88,7 @@ export function MoneyFlowCard({
                     title={`${bar.label}: income ${bar.incomeLabel}, outgoing ${bar.outgoingLabel}`}
                   >
                     <div
-                      className="rounded-t-md bg-teal-500"
+                      className="rounded-t-md bg-emerald-500"
                       style={{ height: `${bar.incomePercent}%` }}
                     />
                     <div
@@ -123,7 +123,7 @@ export function MoneyFlowCard({
       )}
       <div className="mt-4 flex flex-wrap gap-4 text-sm text-zinc-600">
         <span className="flex items-center gap-2">
-          <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-teal-500" /> Income
+          <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Income
         </span>
         <span className="flex items-center gap-2">
           <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-zinc-900" /> Outgoing

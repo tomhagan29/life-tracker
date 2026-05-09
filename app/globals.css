@@ -103,3 +103,17 @@ a {
     border-color: var(--focus-ring);
   }
 }
+
+@layer components {
+  table button,
+  dialog button {
+    min-height: 2.75rem;
+  }
+
+  @media (min-width: 640px) {
+    table button,
+    dialog button {
+      min-height: 2.25rem;
+    }
+  }
+}

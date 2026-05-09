@@ -242,7 +242,7 @@ export function WealthInsights({ insights }: { insights: InsightsData }) {
                     {mode === "cashFlow" && (
                       <div className="flex h-full w-full max-w-11 items-end justify-center gap-1.5">
                         <span
-                          className="w-3 rounded-t-sm bg-teal-500"
+                          className="w-3 rounded-t-sm bg-emerald-500"
                           style={{
                             height: `${getPositiveHeight(
                               point.income,
@@ -279,7 +279,7 @@ export function WealthInsights({ insights }: { insights: InsightsData }) {
           {mode === "cashFlow" ? (
             <>
               <span className="flex items-center gap-2">
-                <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-teal-500" /> Income
+                <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Income
               </span>
               <span className="flex items-center gap-2">
                 <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-zinc-900" /> Spending

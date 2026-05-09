@@ -66,7 +66,7 @@ export function DashboardContent({ dashboard }: { dashboard: DashboardData }) {
             label="Habit score"
             value={dashboard.stats.habitScore.value}
             detail={dashboard.stats.habitScore.detail}
-            accent="bg-fuchsia-500"
+            accent="bg-violet-500"
           />
         </DashboardCardBoundary>
       </section>

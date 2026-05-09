@@ -23,7 +23,7 @@ export function GoalsCard({ goals }: { goals: DashboardGoal[] }) {
                   {goal.progress}%
                 </p>
               </div>
-              <ProgressBar value={goal.progress} color="bg-teal-600" />
+              <ProgressBar value={goal.progress} color="bg-emerald-600" />
             </div>
           ))}
         </div>
